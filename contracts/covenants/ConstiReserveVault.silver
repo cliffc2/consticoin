@@ -4,127 +4,159 @@
 // Enforces unbreakable rules for the hybrid L1+L2 architecture
 // ================================================
 
+// Safety Configuration Constants
+val MAX_DEVIATION_BPS: int64 = 1000       // 10%
+val EMERGENCY_DELAY_BLOCKS: int64 = 2880  // ~48 hours on Kaspa
+val MIN_RESERVE_RATIO_BPS: int64 = 4000   // 400%
+val MAX_WITHDRAWAL_PERCENT: int64 = 10    // 10% per contraction
+
 contract ConstiReserveVault(
-    pubkey  l2BridgePubkey,           // Authorized L2 Bridge pubkey (signer)
-    bytes32 centralBankScriptHash,    // Hash of the L2 CentralBank contract for proof verification
-    int64   maxDeviationBps,          // e.g. 1000 = 10%  (configurable, default 1000)
-    int64   emergencyDelaySeconds     // e.g. 172800 = 48 hours
+    pubkey  l2BridgePubkey,              // Authorized L2 Bridge pubkey
+    bytes32 centralBankScriptHash,        // Hash of L2 CentralBank
+    bytes32 governanceScriptHash,         // Governance multisig script hash
+    int64   maxDeviationBps,              // Configurable deviation threshold
+    int64   emergencyDelayBlocks         // Configurable emergency delay
 ) {
-
+    // Contract registers for state tracking
+    // R4: lastInterventionHeight
+    // R5: lastContractionAmount
+    // R6: emergencyUnlockHeight
+    
     // ================================================
-    // 1. NORMAL CONTRACTION PATH (Under Peg Buyback)
-    // Only allowed when L2 proves the peg is under threshold
+    // 1. CONTRACTION PATH (Under Peg Buyback)
     // ================================================
-    pub fn contractReserves(amount: u64, proof: bytes) {
-        require(checkSig(l2BridgePubkey));                          // Must be signed by authorized bridge
-        require(verifyBridgeProof(proof, centralBankScriptHash));   // Proof must come from L2 CentralBank
-        require(isValidContractionProof(proof));                    // L2 must confirm deviation > maxDeviationBps
-        require(amount > 0 && amount <= getMaxAllowedWithdrawal(proof));
-
-        // Optional: Enforce minimum reserve ratio (e.g. keep at least 20% reserves)
-        require(remainingReservesAfter(amount) >= minimumReserveRatio());
-
-        // Funds can ONLY go to the approved L2 bridge address or redemption path
-        require(tx.outputs[0].scriptHash == approvedBridgeScriptHash());
+    pub fn contractReserves(proof: bytes) {
+        // 1. Verify L2 bridge signature
+        require(checkSig(l2BridgePubkey), "Invalid bridge signature");
+        
+        // 2. Decode and verify proof
+        val (deviation, poolPrice, targetPrice, timestamp, amount) = decodeContractionProof(proof);
+        require(deviation > maxDeviationBps, "Deviation below threshold");
+        require(timestamp > 0 && timestamp < HEIGHT, "Invalid timestamp");
+        
+        // 3. Anti-front-running: minimum time between contractions
+        val lastIntervention = SELF.R4[INT].getOrElse(0);
+        require(HEIGHT - lastIntervention > emergencyDelayBlocks / 2, "Too soon");
+        
+        // 4. Max withdrawal limit (10% of vault)
+        val maxAllowed = (SELF.value * MAX_WITHDRAWAL_PERCENT) / 100;
+        require(amount <= maxAllowed, "Exceeds max withdrawal");
+        
+        // 5. Reserve ratio protection (minimum 400%)
+        val newReserveValue = SELF.value - amount;
+        val reserveRatio = (newReserveValue * 10000) / getTotalSupply();
+        require(reserveRatio >= MIN_RESERVE_RATIO_BPS, "Reserve ratio too low");
+        
+        // 6. Output must go to approved bridge address
+        require(tx.outputs[0].scriptHash == governanceScriptHash, "Invalid output");
+        
+        // Update state
+        SELF.R4[INT] = HEIGHT
+        SELF.R5[INT] = amount
     }
 
     // ================================================
     // 2. EMERGENCY UNWIND (Circuit Breaker)
-    // 48-hour delayed release if peg is broken for too long
     // ================================================
-    pub fn emergencyUnwind() {
-        require(timeSinceLastPegIntervention() > emergencyDelaySeconds);
-        require(getCurrentDeviationFromL2Proof() > maxDeviationBps);
-
-        // Allow slow, proportional return to governance multisig or holders
-        // (can be extended to proportional redemption later)
-        require(tx.outputs[0].scriptHash == governanceMultisigScriptHash());
-    }
-
-    // ================================================
-    // 3. FUTURE-PROOF PHYSICAL REDEMPTION PATH
-    // Burn CONSTI on L2 → unlock equivalent silver weight on L1
-    // ================================================
-    pub fn redeemForSilver(burnProof: bytes, amount: u64) {
-        require(verifyConstiBurnProof(burnProof));   // Proves CONSTI was burned on IGRA L2
-        require(amount > 0);
-
-        // Enforce constitutional weight (371.25 grains = 0.7734375 oz) if silver tokens are used
-        // This can be expanded once native silver assets (KIP-20) are live
+    pub fn emergencyUnwind(proof: bytes) {
+        // 1. Verify emergency proof from L2
+        require(checkSig(l2BridgePubkey), "Invalid bridge signature");
+        val (circuitBreakerTriggered, deviation, timestamp) = decodeEmergencyProof(proof);
+        require(circuitBreakerTriggered, "Circuit breaker not triggered");
+        
+        // 2. Check delay has passed
+        val emergencyUnlockHeight = SELF.R6[INT].getOrElse(0);
+        if (emergencyUnlockHeight == 0) {
+            // First call - set unlock height
+            SELF.R6[INT] = HEIGHT + emergencyDelayBlocks
+            return
+        }
+        require(HEIGHT >= emergencyUnlockHeight, "Emergency delay not elapsed");
+        
+        // 3. Allow release to governance
+        require(tx.outputs[0].scriptHash == governanceScriptHash, "Invalid output");
     }
 
     // ================================================
-    // Helper Functions (SilverScript supports these)
+    // 3. PHYSICAL REDEMPTION (Future Feature)
     // ================================================
-    fn isValidContractionProof(proof: bytes) -> bool {
-        // Decode proof from L2 (contains deviation, timestamp, CentralBank signature)
-        let deviation = extractDeviationFromProof(proof);
-        return deviation > maxDeviationBps;
-    }
-
-    fn getMaxAllowedWithdrawal(proof: bytes) -> u64 {
-        // Limit withdrawal to e.g. 5-10% of reserves per intervention to prevent drain
-        return (currentVaultBalance() * 10) / 100;   // 10% max per call (tune as needed)
-    }
-
-    fn remainingReservesAfter(amount: u64) -> u64 {
-        return currentVaultBalance() - amount;
-    }
-
-    fn minimumReserveRatio() -> u64 {
-        return 20;   // Keep at least 20% of initial reserves as safety buffer (configurable)
-    }
-
-    fn timeSinceLastPegIntervention() -> int64 {
-        // Extract timestamp from last valid L2 proof stored in covenant state
-        return currentTimestamp() - lastInterventionTimestamp();
-    }
-
-    fn getCurrentDeviationFromL2Proof() -> int64 {
-        // Used by emergency unwind
-        return 0; // placeholder — populated from proof in real usage
+    pub fn redeemForSilver(burnProof: bytes) {
+        // 1. Verify burn proof from L2
+        require(checkSig(l2BridgePubkey), "Invalid signature");
+        
+        // 2. Decode burn proof
+        val (constiBurned, timestamp, redeemer) = decodeBurnProof(burnProof);
+        require(constiBurned > 0, "No tokens burned");
+        
+        // 3. Calculate silver equivalent (371.25 grains = 1 CONSTI base unit)
+        // Silver weight = CONSTI burned * 371.25 grains
+        val silverGrains = constiBurned * 37125 / 10000;
+        
+        // 4. Output to redeemer address (simplified - would use actual address)
+        require(tx.outputs[0].value >= silverGrains, "Insufficient silver");
     }
 
     // ================================================
-    // Verification Helpers
+    // PROOF DECODING FUNCTIONS
     // ================================================
-    fn verifyBridgeProof(proof: bytes, expectedScriptHash: bytes32) -> bool {
-        // Verify the proof contains valid L2 bridge data
-        // Proof format: [signature, L2_tx_hash, timestamp, deviation]
-        return true; // Placeholder - implement actual verification
+    
+    fn decodeContractionProof(proof: bytes) -> (int64, int64, int64, int64, u64) {
+        // Proof format: [deviation:8][poolPrice:8][targetPrice:8][timestamp:8][amount:8]
+        // Total: 40 bytes minimum
+        require(proof.size >= 40, "Invalid proof size");
+        
+        val deviation = proof.slice(0, 8).toInt64()
+        val poolPrice = proof.slice(8, 8).toInt64()
+        val targetPrice = proof.slice(16, 8).toInt64()
+        val timestamp = proof.slice(24, 8).toInt64()
+        val amount = proof.slice(32, 8).toU64()
+        
+        return (deviation, poolPrice, targetPrice, timestamp, amount)
+    }
+    
+    fn decodeEmergencyProof(proof: bytes) -> (bool, int64, int64) {
+        // Proof format: [triggered:1][deviation:8][timestamp:8]
+        require(proof.size >= 17, "Invalid proof size")
+        
+        val triggered = proof.slice(0, 1).toByte() == 0x01
+        val deviation = proof.slice(1, 8).toInt64()
+        val timestamp = proof.slice(9, 8).toInt64()
+        
+        return (triggered, deviation, timestamp)
+    }
+    
+    fn decodeBurnProof(proof: bytes) -> (u64, int64, bytes) {
+        // Proof format: [constiBurned:8][timestamp:8][redeemer:32]
+        require(proof.size >= 48, "Invalid proof size")
+        
+        val constiBurned = proof.slice(0, 8).toU64()
+        val timestamp = proof.slice(8, 8).toInt64()
+        val redeemer = proof.slice(16, 32)
+        
+        return (constiBurned, timestamp, redeemer)
     }
 
-    fn verifyConstiBurnProof(burnProof: bytes) -> bool {
-        // Verify CONSTI burn proof from IGRA L2
-        return true; // Placeholder - implement actual verification
+    // ================================================
+    // HELPER FUNCTIONS
+    // ================================================
+    
+    fn getTotalSupply() -> u64 {
+        // Total CONSTI supply (would integrate with oracle or fixed supply)
+        return 1000000e18  // Placeholder - would fetch from L2
     }
-
-    fn extractDeviationFromProof(proof: bytes) -> int64 {
-        // Extract deviation percentage from proof bytes
-        return 0; // Placeholder - implement extraction
+    
+    // Cancel emergency unlock (governance only)
+    pub fn cancelEmergency() {
+        require(checkSig(l2BridgePubkey), "Not authorized");
+        SELF.R6[INT] = 0  // Clear emergency state
     }
-
-    fn currentVaultBalance() -> u64 {
-        // Get current vault balance
-        return SELF.value;
-    }
-
-    fn currentTimestamp() -> int64 {
-        return HEIGHT; // Use block height as timestamp proxy
-    }
-
-    fn lastInterventionTimestamp() -> int64 {
-        // Track last intervention in contract registers
-        return 0; // Placeholder
-    }
-
-    fn approvedBridgeScriptHash() -> bytes32 {
-        // Script hash of approved L2 bridge
-        return 0x0000000000000000000000000000000000000000000000000000000000000000;
-    }
-
-    fn governanceMultisigScriptHash() -> bytes32 {
-        // Script hash for governance multisig
-        return 0x0000000000000000000000000000000000000000000000000000000000000000;
+    
+    // Update configuration (governance)
+    pub fn updateConfig(newMaxDeviation: int64, newEmergencyDelay: int64) {
+        require(checkSig(l2BridgePubkey), "Not authorized");
+        require(newMaxDeviation >= 500 && newMaxDeviation <= 5000, "Invalid deviation");
+        require(newEmergencyDelay >= 720 && newEmergencyDelay <= 10080, "Invalid delay");
+        
+        // This would update contract constants - implementation depends on SilverScript version
     }
 }

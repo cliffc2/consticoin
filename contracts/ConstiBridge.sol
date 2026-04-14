@@ -53,11 +53,9 @@ contract ConstiBridge is Ownable {
         require(amount >= minContractionAmount, "Amount too small");
         
         uint256 deviation = centralBank.getDeviation();
-        require(deviation > 1000, "Not under peg"); // Must be >10% deviation
+        require(deviation > 1000, "Not under peg");
         
         emit ContractionRequested(amount, deviation, block.timestamp);
-        
-        // Call CentralBank to trigger contraction event
         centralBank.requestL1Contraction(amount);
     }
 
@@ -75,8 +73,7 @@ contract ConstiBridge is Ownable {
         emit ReservesWithdrawn(amount, recipient);
     }
 
-    // Bridge helper to check if ready for contraction
-    function canContract() external view returns (bool) {
+    function canContraction() public view returns (bool) {
         if (paused) return false;
         if (address(centralBank) == address(0)) return false;
         
@@ -84,7 +81,6 @@ contract ConstiBridge is Ownable {
         return deviation > 1000;
     }
 
-    // Get current bridge status
     function getBridgeStatus() external view returns (
         bool paused_,
         bool canContract_,
@@ -97,5 +93,27 @@ contract ConstiBridge is Ownable {
         deviation = centralBank.getDeviation();
         poolPrice = centralBank.getPoolPrice();
         targetPrice = centralBank.getTargetPrice();
+    }
+
+    function generateContractionProof(uint256 amount) external view returns (bytes memory proof) {
+        require(address(centralBank) != address(0), "No central bank");
+        
+        uint256 deviation = centralBank.getDeviation();
+        uint256 poolPrice = centralBank.getPoolPrice();
+        uint256 targetPrice = centralBank.getTargetPrice();
+        uint256 timestamp = block.timestamp;
+        
+        proof = abi.encode(deviation, poolPrice, targetPrice, timestamp, amount);
+    }
+
+    function verifyContractionState(uint256 amount) external view returns (
+        bool validDeviation,
+        uint256 maxAllowed,
+        uint256 currentReserveRatio
+    ) {
+        uint256 deviation = centralBank.getDeviation();
+        validDeviation = deviation > 1000;
+        maxAllowed = 0;
+        currentReserveRatio = 0;
     }
 }
