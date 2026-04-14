@@ -7,7 +7,7 @@ import "./CentralBank.sol";
 import "./IConstiReserveVault.sol";
 
 contract ConstiBridge is Ownable, ReentrancyGuard {
-    
+
     CentralBank public centralBank;
     IConstiReserveVault public l1Vault;
 
@@ -17,27 +17,27 @@ contract ConstiBridge is Ownable, ReentrancyGuard {
 
     event ContractionRequested(uint256 amount, uint256 deviationBps, uint256 timestamp);
     event EmergencyUnwindRequested(uint256 timestamp);
-    event BridgeHealthy(bool status);
+    event BridgeStatus(bool healthy, uint256 lastAction);
 
     constructor() Ownable(msg.sender) {}
 
     function setCentralBank(address _centralBank) external onlyOwner {
-        require(_centralBank != address(0), "Invalid CentralBank");
+        require(_centralBank != address(0), "Invalid CentralBank address");
         centralBank = CentralBank(_centralBank);
     }
 
     function setL1Vault(address _l1Vault) external onlyOwner {
-        require(_l1Vault != address(0), "Invalid L1Vault");
+        require(_l1Vault != address(0), "Invalid L1Vault address");
         l1Vault = IConstiReserveVault(_l1Vault);
     }
 
     function requestContraction(uint256 amount) external {
-        require(msg.sender == address(centralBank), "Only CentralBank allowed");
+        require(msg.sender == address(centralBank), "Only CentralBank can call");
         require(block.timestamp >= lastContractionTime + COOLDOWN, "Cooldown active");
-        require(amount > 0, "Amount must be positive");
+        require(amount > 0, "Amount must be > 0");
 
         uint256 deviation = centralBank.getDeviation();
-        require(deviation >= centralBank.maxDeviationBps(), "Deviation too small");
+        require(deviation >= centralBank.maxDeviationBps(), "Deviation below threshold");
 
         uint256 maxAllowed = (centralBank.getReserves() * MAX_WITHDRAWAL_PERCENT) / 100;
         require(amount <= maxAllowed, "Exceeds max withdrawal limit");
@@ -54,7 +54,7 @@ contract ConstiBridge is Ownable, ReentrancyGuard {
     }
 
     function requestEmergencyUnwind() external {
-        require(msg.sender == address(centralBank), "Only CentralBank allowed");
+        require(msg.sender == address(centralBank), "Only CentralBank can call");
 
         bytes memory proof = _generateEmergencyProof();
 
