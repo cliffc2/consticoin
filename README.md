@@ -2,6 +2,20 @@
 
 Algorithmic stablecoin pegged to Constitutional Dollar (371.25 grains silver = 0.7734375 oz) deployed on Igra Galleon Testnet.
 
+## Inspired by Djed & AgeUSD Protocol
+
+This implementation is based on the **Djed** algorithmic stablecoin protocol by Alexander Chepurnoy (Alex) and the Ergo team.
+
+### Key Papers:
+- **[Djed: A Formally Verified Crypto-Backed Pegged Algorithmic Stablecoin](https://eprint.iacr.org/2021/1069.pdf)** - ICR paper by Joachim Zahnentferner, Dmytro Kaidalov, et al.
+- **AgeUSD Protocol** - Developed by Ergo Foundation, EMURGO, and IOG
+
+### Original Implementations:
+- **SigmaUSD** - First AgeUSD deployment on Ergo (Q1 2021)
+- Developed by Alexander Chepurnoy, Robert Kornacki, and the Ergo community
+
+The fundamental mechanism—crypto-backed reserves with dual tokens (stablecoin + reserve coin)—originates from this research. ConstiCoin adapts these principles for the IGRA/EVM ecosystem with silver as collateral instead of ergo.
+
 ## Philosophy
 
 - **Zero Pre-mine** - Cypherpunk philosophy, no privileged allocation
