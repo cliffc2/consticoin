@@ -1,119 +1,107 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 interface ICentralBank {
-    function requestL1Contraction(uint256 amount) external;
     function getDeviation() external view returns (uint256);
-    function getPoolPrice() external view returns (uint256);
-    function getTargetPrice() external view returns (uint256);
-    function isEmergencyUnwindReady() external view returns (bool);
+    function maxDeviationBps() external view returns (uint256);
+    function getReserves() external view returns (uint256);
 }
 
-interface ILiquidityPool {
-    function swapIKASForConsti() external payable;
+interface IConstiReserveVault {
+    function contractReserves(uint256 amount, bytes calldata proof) external;
+    function emergencyUnwind() external;
 }
 
-contract ConstiBridge is Ownable {
-    ICentralBank public centralBank;
-    address public reserveVault;
-    uint256 public minContractionAmount = 1e18;
-    bool public paused = false;
+contract ConstiBridge is Ownable, ReentrancyGuard {
     
-    event ContractionRequested(uint256 amount, uint256 deviation, uint256 timestamp);
-    event EmergencyUnwindRequested(uint256 timestamp);
-    event ReservesWithdrawn(uint256 amount, address recipient);
+    ICentralBank public centralBank;
+    IConstiReserveVault public l1Vault;
 
-    modifier whenNotPaused() {
-        require(!paused, "Bridge paused");
-        _;
-    }
+    uint256 public constant MAX_WITHDRAWAL_PERCENT = 10;
+    uint256 public lastContractionTime;
+    uint256 public constant COOLDOWN = 1 hours;
+
+    event ContractionRequested(uint256 amount, uint256 deviationBps, uint256 timestamp);
+    event EmergencyUnwindRequested(uint256 timestamp);
+    event BridgeStatusUpdated(bool healthy);
 
     constructor() Ownable(msg.sender) {}
 
     function setCentralBank(address _centralBank) external onlyOwner {
+        require(_centralBank != address(0), "Invalid address");
         centralBank = ICentralBank(_centralBank);
     }
 
-    function setReserveVault(address _vault) external onlyOwner {
-        reserveVault = _vault;
+    function setL1Vault(address _l1Vault) external onlyOwner {
+        require(_l1Vault != address(0), "Invalid address");
+        l1Vault = IConstiReserveVault(_l1Vault);
     }
 
-    function setMinContractionAmount(uint256 _amount) external onlyOwner {
-        minContractionAmount = _amount;
-    }
+    function requestContraction(uint256 amount) external {
+        require(msg.sender == address(centralBank), "Only CentralBank can request");
+        require(block.timestamp >= lastContractionTime + COOLDOWN, "Cooldown active");
+        require(amount > 0, "Amount must be > 0");
 
-    function pauseBridge() external onlyOwner {
-        paused = !paused;
-    }
-
-    function requestContraction(uint256 amount) external whenNotPaused {
-        require(address(centralBank) != address(0), "No central bank");
-        require(amount >= minContractionAmount, "Amount too small");
-        
         uint256 deviation = centralBank.getDeviation();
-        require(deviation > 1000, "Not under peg");
-        
+        require(deviation > centralBank.maxDeviationBps(), "Deviation too small");
+
+        uint256 maxAllowed = (centralBank.getReserves() * MAX_WITHDRAWAL_PERCENT) / 100;
+        require(amount <= maxAllowed, "Exceeds max withdrawal limit");
+
+        bytes memory proof = generateContractionProof(amount, deviation);
+
         emit ContractionRequested(amount, deviation, block.timestamp);
-        centralBank.requestL1Contraction(amount);
+
+        if (address(l1Vault) != address(0)) {
+            l1Vault.contractReserves(amount, proof);
+        }
+
+        lastContractionTime = block.timestamp;
     }
 
-    function requestEmergencyUnwind() external onlyOwner {
-        require(address(centralBank) != address(0), "No central bank");
-        require(centralBank.isEmergencyUnwindReady(), "Emergency not ready");
-        
+    function requestEmergencyUnwind() external {
+        require(msg.sender == address(centralBank), "Only CentralBank can request");
+
         emit EmergencyUnwindRequested(block.timestamp);
+
+        if (address(l1Vault) != address(0)) {
+            l1Vault.emergencyUnwind();
+        }
     }
 
-    function withdrawReserves(uint256 amount, address recipient) external onlyOwner {
-        require(amount > 0, "Zero amount");
-        require(recipient != address(0), "Invalid recipient");
-        
-        emit ReservesWithdrawn(amount, recipient);
+    function generateContractionProof(uint256 amount, uint256 deviationBps) 
+        internal view returns (bytes memory) 
+    {
+        return abi.encodePacked(
+            uint8(1),
+            amount,
+            deviationBps,
+            block.timestamp
+        );
     }
 
-    function canContraction() public view returns (bool) {
-        if (paused) return false;
-        if (address(centralBank) == address(0)) return false;
-        
-        uint256 deviation = centralBank.getDeviation();
-        return deviation > 1000;
+    function generateEmergencyProof() internal view returns (bytes memory) {
+        return abi.encodePacked(
+            uint8(2),
+            block.timestamp
+        );
+    }
+
+    function canContraction() external view returns (bool) {
+        if (block.timestamp < lastContractionTime + COOLDOWN) return false;
+        return centralBank.getDeviation() > centralBank.maxDeviationBps();
     }
 
     function getBridgeStatus() external view returns (
-        bool paused_,
-        bool canContract_,
-        uint256 deviation,
-        uint256 poolPrice,
-        uint256 targetPrice
+        bool healthy,
+        uint256 lastContraction,
+        uint256 currentDeviation
     ) {
-        paused_ = paused;
-        canContract_ = canContraction();
-        deviation = centralBank.getDeviation();
-        poolPrice = centralBank.getPoolPrice();
-        targetPrice = centralBank.getTargetPrice();
-    }
-
-    function generateContractionProof(uint256 amount) external view returns (bytes memory proof) {
-        require(address(centralBank) != address(0), "No central bank");
-        
-        uint256 deviation = centralBank.getDeviation();
-        uint256 poolPrice = centralBank.getPoolPrice();
-        uint256 targetPrice = centralBank.getTargetPrice();
-        uint256 timestamp = block.timestamp;
-        
-        proof = abi.encode(deviation, poolPrice, targetPrice, timestamp, amount);
-    }
-
-    function verifyContractionState(uint256 amount) external view returns (
-        bool validDeviation,
-        uint256 maxAllowed,
-        uint256 currentReserveRatio
-    ) {
-        uint256 deviation = centralBank.getDeviation();
-        validDeviation = deviation > 1000;
-        maxAllowed = 0;
-        currentReserveRatio = 0;
+        healthy = address(centralBank) != address(0) && address(l1Vault) != address(0);
+        lastContraction = lastContractionTime;
+        currentDeviation = centralBank.getDeviation();
     }
 }

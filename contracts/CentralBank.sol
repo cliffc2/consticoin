@@ -93,6 +93,9 @@ contract CentralBank is Ownable {
         require(poolPrice > 0 && poolPrice < (targetPrice * 99) / 100, "Not under peg");
         
         emit L1ContractionRequested(amount, block.timestamp);
+        
+        // Forward to bridge for L1 covenant
+        IConstiBridge(bridge).requestContraction(amount);
     }
 
     function triggerEmergencyUnwind() external onlyAIAgent(AgentType.RISK_MANAGER) {
@@ -220,6 +223,13 @@ contract CentralBank is Ownable {
         require(amount > 0 && amount <= 1000000e18, "Invalid bootstrap amount");
         IConstiCoin(constiCoin).mint(liquidityPool, amount);
     }
+
+    function getReserves() public view returns (uint256) {
+        if (reserve != address(0)) {
+            return IERC20(reserve).balanceOf(address(this));
+        }
+        return 0;
+    }
 }
 
 interface IConstiCoin {
@@ -230,4 +240,9 @@ interface IConstiCoin {
 
 interface IERC20 {
     function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+}
+
+interface IConstiBridge {
+    function requestContraction(uint256 amount) external;
 }
