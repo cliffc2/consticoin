@@ -24,7 +24,44 @@ ConstiCoin (ERC20) ──► CentralBank (Peg Management)
                            │
                            ▼
                     LiquidityPool (AMM)
+                           │
+                           ▼
+              ┌────────────────────────┐
+              │   Kaspa L1 Covenants   │
+              │  (SilverScript Vault)  │
+              └────────────────────────┘
 ```
+
+## Hybrid L1 + L2 Safety
+
+This implementation includes **Kaspa L1 covenants** for ironclad security:
+
+### Safety Rules Enforced by L1 Covenants
+
+1. **Reserve Vault Covenant**
+   - Reserves can only be spent for legitimate "contraction" (buyback) actions
+   - Requires proof that L2 is under peg (>10% deviation)
+
+2. **Emergency Unwind Covenant**
+   - If peg deviation >10% for >48 hours, allows slow time-locked return to holders
+   - Protects against complete protocol failure
+
+3. **No Unauthorized Drain**
+   - Any L1 spend must come from verified L2 bridge call + proof
+   - Cannot be bypassed even if L2 contracts are exploited
+
+### SilverScript Covenant (`contracts/covenants/ConstiReserveVault.silver`)
+
+- Written in SilverScript (Kaspa smart contract language)
+- Compiles to Kaspa script hash
+- Locks reserves on Kaspa L1 with unbreakable rules
+
+### L2 Bridge Integration (`CentralBank.sol`)
+
+- `setBridge(address)` - Sets L2 bridge address
+- `requestL1Contraction(amount)` - Requests L1 contraction when under peg
+- `triggerEmergencyUnwind()` - Triggers emergency unwind after 48h delay
+- `getDeviation()` - Returns current peg deviation in bps
 
 ## Deployed Contracts (IGRA Galleon Testnet)
 
@@ -68,8 +105,19 @@ python3 -m http.server 8888
 ## Smart Contracts
 
 - `ConstiCoin.sol` - ERC20 token with fee distribution
-- `CentralBank.sol` - Peg management and price feeds
+- `CentralBank.sol` - Peg management with L1 bridge integration
 - `LiquidityPool.sol` - AMM with swap fees
+- `covenants/ConstiReserveVault.silver` - Kaspa L1 safety covenant
+
+## Safety Rules
+
+| Rule | Description | Threshold |
+|------|-------------|------------|
+| Circuit Breaker | Auto-pause if peg deviates | 10% (configurable) |
+| Contraction Limit | Max burn per rebase | 2% of supply |
+| Expansion Limit | Max mint per rebase | 2% of supply |
+| Emergency Delay | Time before emergency unwind | 48 hours |
+| Price Staleness | Max age of oracle price | 1 hour |
 
 ## License
 

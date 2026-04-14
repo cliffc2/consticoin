@@ -28,12 +28,21 @@ contract CentralBank is Ownable {
     address public constiCoin;
     address public liquidityPool;
     address public reserve;
+    address public bridge;
+    
+    uint256 public maxDeviationBps = 1000;
+    uint256 public emergencyUnlockDelay = 48 hours;
+    bool public emergencyUnwindTriggered = false;
+    uint256 public emergencyUnlockTime;
 
     event PriceSubmitted(address indexed agent, uint256 price);
     event RebaseTriggered(uint256 expansion, uint256 contraction);
     event ParametersAdjusted(uint256 expLimit, uint256 contLimit, uint256 thresh);
     event EmergencyPause(bool paused);
     event CircuitBreaker(uint256 price, uint256 target, uint256 deviation);
+    event L1ContractionRequested(uint256 amount, uint256 timestamp);
+    event EmergencyUnwindTriggered(uint256 timestamp);
+    event BridgeSet(address indexed bridge);
 
     modifier onlyAIAgent(AgentType _type) {
         require(isAIAgent[msg.sender] && agentTypes[msg.sender] == _type, "Not authorized");
@@ -62,6 +71,53 @@ contract CentralBank is Ownable {
     function setReserve(address _reserve) external onlyOwner {
         require(reserve == address(0), "Already set");
         reserve = _reserve;
+    }
+
+    function setBridge(address _bridge) external onlyOwner {
+        require(_bridge != address(0), "Invalid bridge");
+        bridge = _bridge;
+        emit BridgeSet(_bridge);
+    }
+
+    function setEmergencyParams(uint256 _maxDeviationBps, uint256 _delay) external onlyOwner {
+        require(_maxDeviationBps >= 500 && _maxDeviationBps <= 5000, "Deviation 5-50%");
+        require(_delay >= 1 hours && _delay <= 7 days, "Delay 1h-7d");
+        maxDeviationBps = _maxDeviationBps;
+        emergencyUnlockDelay = _delay;
+    }
+
+    function requestL1Contraction(uint256 amount) external onlyAIAgent(AgentType.QUANT) {
+        require(bridge != address(0), "No bridge");
+        uint256 poolPrice = getPoolPrice();
+        uint256 targetPrice = getTargetPrice();
+        require(poolPrice > 0 && poolPrice < (targetPrice * 99) / 100, "Not under peg");
+        
+        emit L1ContractionRequested(amount, block.timestamp);
+    }
+
+    function triggerEmergencyUnwind() external onlyAIAgent(AgentType.RISK_MANAGER) {
+        require(!emergencyUnwindTriggered, "Already triggered");
+        emergencyUnwindTriggered = true;
+        emergencyUnlockTime = block.timestamp + emergencyUnlockDelay;
+        emit EmergencyUnwindTriggered(emergencyUnlockTime);
+    }
+
+    function cancelEmergencyUnwind() external onlyOwner {
+        emergencyUnwindTriggered = false;
+        emergencyUnlockTime = 0;
+    }
+
+    function isEmergencyUnwindReady() public view returns (bool) {
+        return emergencyUnwindTriggered && block.timestamp >= emergencyUnlockTime;
+    }
+
+    function getDeviation() public view returns (uint256) {
+        uint256 poolPrice = getPoolPrice();
+        uint256 targetPrice = getTargetPrice();
+        if (poolPrice == 0 || targetPrice == 0) return 0;
+        return poolPrice > targetPrice 
+            ? ((poolPrice - targetPrice) * 10000) / targetPrice 
+            : ((targetPrice - poolPrice) * 10000) / targetPrice;
     }
 
     function registerAgent(address _agent, AgentType _type) external onlyOwner {
@@ -145,17 +201,13 @@ contract CentralBank is Ownable {
 
     function checkCircuitBreaker() external {
         require(currentSilverPrice > 0 && !circuitBreakerTriggered, "No price or triggered");
-        uint256 target = getTargetPrice();
-        uint256 poolPrice = getPoolPrice();
-        if (poolPrice > 0) {
-            uint256 deviation = poolPrice > target 
-                ? ((poolPrice - target) * 10000) / target 
-                : ((target - poolPrice) * 10000) / target;
-            if (deviation > 1000) {
-                circuitBreakerTriggered = true;
-                paused = true;
-                emit CircuitBreaker(poolPrice, target, deviation);
-            }
+        uint256 deviation = getDeviation();
+        if (deviation > maxDeviationBps) {
+            circuitBreakerTriggered = true;
+            paused = true;
+            uint256 targetPrice = getTargetPrice();
+            uint256 poolPrice = getPoolPrice();
+            emit CircuitBreaker(poolPrice, targetPrice, deviation);
         }
     }
 
