@@ -3,8 +3,7 @@ pragma solidity ^0.8.20;
 
 /**
  * @title IConstiReserveVault
- * @notice Interface for the Kaspa L1 Covenant (ConstiReserveVault.silver)
- * This allows the L2 ConstiBridge to call the L1 vault safely.
+ * @notice Interface for the Kaspa L1 Covenant that protects reserves
  */
 interface IConstiReserveVault {
 

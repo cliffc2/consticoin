@@ -17,30 +17,32 @@ contract ConstiBridge is Ownable, ReentrancyGuard {
 
     event ContractionRequested(uint256 amount, uint256 deviationBps, uint256 timestamp);
     event EmergencyUnwindRequested(uint256 timestamp);
-    event BridgeStatus(bool healthy, uint256 lastAction);
+    event BridgeStatus(bool healthy);
 
     constructor() Ownable(msg.sender) {}
 
+    // ====================== SETUP ======================
     function setCentralBank(address _centralBank) external onlyOwner {
-        require(_centralBank != address(0), "Invalid CentralBank address");
+        require(_centralBank != address(0), "Invalid CentralBank");
         centralBank = CentralBank(_centralBank);
     }
 
     function setL1Vault(address _l1Vault) external onlyOwner {
-        require(_l1Vault != address(0), "Invalid L1Vault address");
+        require(_l1Vault != address(0), "Invalid L1Vault");
         l1Vault = IConstiReserveVault(_l1Vault);
     }
 
+    // ====================== MAIN ENTRY POINTS ======================
     function requestContraction(uint256 amount) external {
         require(msg.sender == address(centralBank), "Only CentralBank can call");
         require(block.timestamp >= lastContractionTime + COOLDOWN, "Cooldown active");
         require(amount > 0, "Amount must be > 0");
 
         uint256 deviation = centralBank.getDeviation();
-        require(deviation >= centralBank.maxDeviationBps(), "Deviation below threshold");
+        require(deviation >= centralBank.maxDeviationBps(), "Deviation too small");
 
         uint256 maxAllowed = (centralBank.getReserves() * MAX_WITHDRAWAL_PERCENT) / 100;
-        require(amount <= maxAllowed, "Exceeds max withdrawal limit");
+        require(amount <= maxAllowed, "Exceeds max withdrawal");
 
         bytes memory proof = _generateContractionProof(amount, deviation);
 
@@ -65,6 +67,7 @@ contract ConstiBridge is Ownable, ReentrancyGuard {
         }
     }
 
+    // ====================== PROOF GENERATION ======================
     function _generateContractionProof(uint256 amount, uint256 deviationBps) 
         internal view returns (bytes memory) 
     {
@@ -83,6 +86,7 @@ contract ConstiBridge is Ownable, ReentrancyGuard {
         );
     }
 
+    // ====================== VIEW FUNCTIONS ======================
     function canContraction() external view returns (bool) {
         if (block.timestamp < lastContractionTime + COOLDOWN) return false;
         return centralBank.getDeviation() >= centralBank.maxDeviationBps();
