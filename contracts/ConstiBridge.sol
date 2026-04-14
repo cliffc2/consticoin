@@ -3,16 +3,12 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "./interfaces/IConstiReserveVault.sol";
 
 interface ICentralBank {
     function getDeviation() external view returns (uint256);
     function maxDeviationBps() external view returns (uint256);
     function getReserves() external view returns (uint256);
-}
-
-interface IConstiReserveVault {
-    function contractReserves(uint256 amount, bytes calldata proof) external;
-    function emergencyUnwind() external;
 }
 
 contract ConstiBridge is Ownable, ReentrancyGuard {
@@ -65,10 +61,11 @@ contract ConstiBridge is Ownable, ReentrancyGuard {
     function requestEmergencyUnwind() external {
         require(msg.sender == address(centralBank), "Only CentralBank can request");
 
+        bytes memory proof = generateEmergencyProof();
         emit EmergencyUnwindRequested(block.timestamp);
 
         if (address(l1Vault) != address(0)) {
-            l1Vault.emergencyUnwind();
+            l1Vault.emergencyUnwind(proof);
         }
     }
 
