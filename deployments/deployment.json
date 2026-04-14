@@ -1,0 +1,11 @@
+{
+  "network": "galleon-testnet",
+  "chainId": 38836,
+  "contracts": {
+    "constiCoin": "0x2a9E9C6a89fAb3C32946554AFF2BE9D3C2c2EFDC",
+    "centralBank": "0xf8bea045952b3a095AbC10d93139f8D08095403a",
+    "liquidityPool": "0xe07dC9125560b045377553d673b2b5a96f223F7f"
+  },
+  "deployer": "0x077217888f82381EFB8Fc2AF4EA19d1263bDdFCF",
+  "timestamp": "2026-04-14T12:00:00.000Z"
+}

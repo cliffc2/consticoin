@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ConstiCoin - Constitutional Dollar</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      color: #fff;
+      padding: 20px;
+    }
+    .container { max-width: 700px; margin: 0 auto; }
+    h1 { 
+      text-align: center; 
+      font-size: 2.5rem; 
+      margin-bottom: 5px;
+      background: linear-gradient(90deg, #6c5ce7, #a855f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle { 
+      text-align: center; 
+      color: #a0a0a0; 
+      margin-bottom: 30px;
+      font-size: 0.9rem;
+    }
+    
+    .card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    
+    .card-title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #a855f7;
+    }
+    
+    button {
+      width: 100%;
+      padding: 14px 20px;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 10px;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(90deg, #6c5ce7, #a855f7);
+      color: white;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(108,92,231,0.4); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .btn-secondary {
+      background: rgba(255,255,255,0.1);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,0.15); }
+    
+    .btn-success {
+      background: linear-gradient(90deg, #22c55e, #16a34a);
+    }
+    .btn-success:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(34,197,94,0.4); }
+    
+    .btn-warning {
+      background: linear-gradient(90deg, #f59e0b, #d97706);
+    }
+    
+    input, select {
+      width: 100%;
+      padding: 14px;
+      font-size: 1rem;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      color: white;
+      margin-bottom: 12px;
+    }
+    input:focus, select:focus { outline: none; border-color: #a855f7; }
+    
+    .row { display: flex; gap: 12px; }
+    .row > * { flex: 1; }
+    
+    .status {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+    }
+    .status.info { background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.3); }
+    .status.success { background: rgba(34,197,94,0.2); border: 1px solid rgba(34,197,94,0.3); }
+    .status.error { background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.3); }
+    .status.loading { background: rgba(168,85,247,0.2); border: 1px solid rgba(168,85,247,0.3); }
+    
+    .hidden { display: none; }
+    
+    .wallet-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    
+    .wallet-address {
+      font-family: monospace;
+      color: #a855f7;
+    }
+    
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    
+    .stat-item {
+      background: rgba(0,0,0,0.2);
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    
+    .stat-label {
+      font-size: 0.75rem;
+      color: #a0a0a0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .stat-value {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    
+    .stat-value.green { color: #22c55e; }
+    .stat-value.purple { color: #a855f7; }
+    
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .info-label { color: #a0a0a0; }
+    .info-value { font-weight: 600; }
+    
+    .peggy {
+      font-size: 0.85rem;
+      color: #a0a0a0;
+      text-align: center;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ConstiCoin</h1>
+    <p class="subtitle">Constitutional Dollar - 371.25 grains silver (0.7734375 oz)</p>
+    
+    <!-- Wallet Connection -->
+    <div class="card">
+      <div id="connectSection">
+        <button class="btn-primary" id="connectBtn">
+          Connect Wallet
+        </button>
+        <p style="text-align:center;margin-top:10px;font-size:0.8rem;color:#a0a0a0;">
+          Open in browser with KasWare installed<br>
+          (use http://localhost:8888/consti.html)
+        </p>
+      </div>
+      <div id="walletSection" class="hidden">
+        <div class="wallet-info">
+          <span class="wallet-address" id="walletAddress">0x0000...0000</span>
+          <button class="btn-secondary" style="width: auto; padding: 8px 16px; margin: 0;" onclick="disconnectWallet()">
+            Disconnect
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Price & Stats -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Protocol Status</span>
+        <button class="btn-secondary" style="width: auto; padding: 8px 12px; margin: 0;" onclick="refreshStats()">
+          ↻ Refresh
+        </button>
+      </div>
+      
+      <div class="stat-grid">
+        <div class="stat-item">
+          <div class="stat-label">Silver Price (USD/oz)</div>
+          <div class="stat-value" id="silverPrice">--</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">CONSTI Target</div>
+          <div class="stat-value purple" id="targetPrice">--</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Pool iKAS (tracked)</div>
+          <div class="stat-value" id="pooliKAS">--</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Pool CONSTI</div>
+          <div class="stat-value purple" id="poolConsti">--</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Pool Price</div>
+          <div class="stat-value" id="poolPrice">--</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Pool iKAS (actual)</div>
+          <div class="stat-value green" id="pooliKASActual">--</div>
+        </div>
+      </div>
+      
+      <div class="peggy">
+        Target = Silver Price × 0.7734375 (371.25 grains)
+      </div>
+    </div>
+    
+    <!-- Your Holdings -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Your Holdings</span>
+      </div>
+      
+      <div class="stat-grid">
+        <div class="stat-item">
+          <div class="stat-label">Your iKAS Balance</div>
+          <div class="stat-value" id="walletiKAS">--</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">CONSTI Balance</div>
+          <div class="stat-value" id="constiBalance">--</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Pending Rewards</div>
+          <div class="stat-value green" id="pendingRewards">--</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Last Swap Received</div>
+          <div class="stat-value purple" id="lastSwapReceived">--</div>
+        </div>
+      </div>
+      
+      <button class="btn-success" id="claimBtn" onclick="claimRewards()">
+        Claim Rewards
+      </button>
+    </div>
+    
+    <!-- Swap iKAS → CONSTI -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Swap iKAS → CONSTI</span>
+      </div>
+      
+      <div id="swapForm">
+        <input type="number" id="swapAmount" placeholder="Amount of iKAS to swap" step="0.000000000000000001" />
+        <button class="btn-primary" id="swapBtn" onclick="swapToConsti()">
+          Swap iKAS for CONSTI
+        </button>
+      </div>
+      
+      <div id="swapStatus"></div>
+    </div>
+    
+    <!-- Swap CONSTI → iKAS -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Swap CONSTI → iKAS</span>
+      </div>
+      
+      <div id="swapBackForm">
+        <input type="number" id="swapBackAmount" placeholder="Amount of CONSTI to swap" step="0.000000000000000001" />
+        <button class="btn-warning" id="swapBackBtn" onclick="swapToiKAS()">
+          Swap CONSTI for iKAS
+        </button>
+      </div>
+      
+      <div id="swapBackStatus"></div>
+    </div>
+    
+    <!-- Contract Info -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom: 12px;">Contract Addresses</div>
+      <div class="info-row">
+        <span class="info-label">ConstiCoin</span>
+        <span class="info-value" id="constiAddr" style="font-size: 0.8rem;">0x2a9E9C6a89fAb3C32946554AFF2BE9D3C2c2EFDC</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">CentralBank</span>
+        <span class="info-value" id="centralBankAddr" style="font-size: 0.8rem;">0xf8bea045952b3a095AbC10d93139f8D08095403a</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">LiquidityPool</span>
+        <span class="info-value" id="liquidityPoolAddr" style="font-size: 0.8rem;">0xe07dC9125560b045377553d673b2b5a96f223F7f</span>
+      </div>
+    </div>
+    
+    <!-- Debug -->
+    <div class="card hidden" id="debugCard">
+      <div class="card-title">Debug Info</div>
+      <div id="debugInfo" style="font-size: 0.8rem; color: #a0a0a0; word-break: break-all;"></div>
+    </div>
+  </div>
+
+<script>
+// === CONSTI COIN INTERFACE ===
+// Network: IGRA Galleon Testnet (Chain ID: 38836)
+
+// Contract addresses
+const CONSTI_ADDRESS = "0x2a9E9C6a89fAb3C32946554AFF2BE9D3C2c2EFDC";
+const CENTRAL_BANK_ADDRESS = "0xf8bea045952b3a095AbC10d93139f8D08095403a";
+const LIQUIDITY_POOL_ADDRESS = "0xe07dC9125560b045377553d673b2b5a96f223F7f";
+const CHAIN_ID = 38836;
+
+// MetalpriceAPI
+const METAL_API_KEY = "cbe850e1d654796083cd84cf02a06f28";
+const SILVER_MULTIPLIER = 0.7734375; // 371.25 grains = 0.7734375 oz
+
+// State
+let provider = null;
+let signer = null;
+let userAddress = null;
+let constiCoin = null;
+let centralBank = null;
+let liquidityPool = null;
+let silverPriceUSD = null;
+let lastSwapReceived = "0";
+
+// ABI snippets
+const CONSTI_ABI = [
+  "function balanceOf(address) view returns (uint256)",
+  "function pendingRewards(address) view returns (uint256)",
+  "function claimRewards()",
+  "function transfer(address to, uint256 amount) returns (bool)",
+  "function approve(address spender, uint256 amount) returns (bool)",
+  "function allowance(address owner, address spender) view returns (uint256)"
+];
+
+const CENTRAL_BANK_ABI = [
+  "function getTargetPrice() view returns (uint256)",
+  "function currentSilverPrice() view returns (uint256)",
+  "function getPoolPrice() view returns (uint256)",
+  "function submitPrice(uint256 price)"
+];
+
+const LIQUIDITY_POOL_ABI = [
+  "function getPrice() view returns (uint256)",
+  "function getReserves() view returns (uint256, uint256)",
+  "function swapIKASForConsti() payable",
+  "function swapConstiForIKAS(uint256 amount)"
+];
+
+// === WALLET FUNCTIONS ===
+
+async function connectWallet() {
+  try {
+    // Try KasWare first, then fallback to window.ethereum
+    let eth = window.kasware?.ethereum || window.ethereum;
+    
+    if (!eth) {
+      showStatus("swapStatus", "No wallet! Install KasWare: https://kasware.xyz", "error");
+      return;
+    }
+    
+    const accounts = await eth.request({ method: 'eth_requestAccounts' });
+    if (!accounts || accounts.length === 0) {
+      showStatus("swapStatus", "No account found", "error");
+      return;
+    }
+    
+    userAddress = accounts[0];
+    
+    // Create provider
+    provider = new ethers.BrowserProvider(eth);
+    signer = await provider.getSigner();
+    
+    // Init contracts
+    initContracts();
+    
+    // Update UI
+    document.getElementById("walletAddress").textContent = userAddress.substring(0, 6) + "..." + userAddress.substring(38);
+    document.getElementById("connectSection").classList.add("hidden");
+    document.getElementById("walletSection").classList.remove("hidden");
+    
+    // Refresh data
+    await refreshStats();
+    await refreshHoldings();
+    
+  } catch (error) {
+    console.error(error);
+    showStatus("swapStatus", "Error: " + error.message, "error");
+  }
+}
+
+function disconnectWallet() {
+  provider = null;
+  signer = null;
+  userAddress = null;
+  constiCoin = null;
+  centralBank = null;
+  liquidityPool = null;
+  
+  document.getElementById("connectSection").classList.remove("hidden");
+  document.getElementById("walletSection").classList.add("hidden");
+}
+
+function initContracts() {
+  constiCoin = new ethers.Contract(CONSTI_ADDRESS, CONSTI_ABI, signer);
+  centralBank = new ethers.Contract(CENTRAL_BANK_ADDRESS, CENTRAL_BANK_ABI, signer);
+  liquidityPool = new ethers.Contract(LIQUIDITY_POOL_ADDRESS, LIQUIDITY_POOL_ABI, signer);
+}
+
+// === METALPRICEAPI ===
+
+async function fetchSilverPrice() {
+  console.log("Fetching silver price...");
+  
+  const fallbackPrice = 28.50;
+  
+  if (!METAL_API_KEY) {
+    silverPriceUSD = fallbackPrice;
+    document.getElementById("silverPrice").textContent = "$" + silverPriceUSD.toFixed(2) + " (manual)";
+    return silverPriceUSD;
+  }
+  
+  try {
+    // API: base=XAG, currencies=USD returns 1 oz silver = X USD
+    const url = `https://api.metalpriceapi.com/v1/latest?api_key=${METAL_API_KEY}&base=XAG&currencies=USD`;
+    console.log("API URL:", url);
+    
+    const res = await fetch(url, { method: 'GET', mode: 'cors' });
+    console.log("Response status:", res.status);
+    
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    
+    const data = await res.json();
+    console.log("API Data:", JSON.stringify(data));
+    
+    // rates.USD = USD per ounce of silver
+    if (data.success && data.rates && data.rates.USD) {
+      silverPriceUSD = data.rates.USD;
+      console.log("Silver price (USD/oz):", silverPriceUSD);
+      const timestamp = new Date().toLocaleTimeString();
+      document.getElementById("silverPrice").textContent = "$" + silverPriceUSD.toFixed(2);
+      return silverPriceUSD;
+    } else {
+      throw new Error("Invalid API response");
+    }
+  } catch (error) {
+    console.error("Silver price fetch error:", error);
+    silverPriceUSD = fallbackPrice;
+    document.getElementById("silverPrice").textContent = "$" + silverPriceUSD.toFixed(2) + " (manual)";
+    return silverPriceUSD;
+  }
+}
+
+// === STATS & HOLDINGS ===
+
+async function refreshStats() {
+  try {
+    // Get silver price
+    await fetchSilverPrice();
+    
+    // Calculate target price
+    if (silverPriceUSD) {
+      const targetPrice = silverPriceUSD * SILVER_MULTIPLIER;
+      document.getElementById("targetPrice").textContent = 
+        targetPrice.toFixed(6) + " iKAS";
+    }
+    
+    // Get pool price
+    if (liquidityPool) {
+      try {
+        const poolPrice = await liquidityPool.getPrice();
+        document.getElementById("poolPrice").textContent = 
+          ethers.formatEther(poolPrice) + " iKAS/CONSTI";
+      } catch (e) {
+        document.getElementById("poolPrice").textContent = "No price";
+      }
+      
+      // Get reserves
+      try {
+        const [ikasReserve, constiReserve] = await liquidityPool.getReserves();
+        document.getElementById("pooliKAS").textContent = 
+          ethers.formatEther(ikasReserve);
+        document.getElementById("poolConsti").textContent = 
+          ethers.formatEther(constiReserve);
+        
+        // Get actual iKAS balance
+        const actualBalance = await provider.getBalance(LIQUIDITY_POOL_ADDRESS);
+        document.getElementById("pooliKASActual").textContent = 
+          ethers.formatEther(actualBalance);
+        
+        if (parseFloat(ethers.formatEther(constiReserve)) === 0) {
+          showStatus("swapStatus", "⚠️ Pool needs initial CONSTI liquidity. Contact deployer.", "error");
+        }
+      } catch (e) {
+        document.getElementById("pooliKAS").textContent = "--";
+        document.getElementById("poolConsti").textContent = "--";
+      }
+    }
+  } catch (error) {
+    console.error("Stats refresh error:", error);
+  }
+}
+
+async function refreshHoldings() {
+  if (!constiCoin || !userAddress) return;
+  
+  try {
+    // Get wallet iKAS balance
+    const walletBalance = await provider.getBalance(userAddress);
+    document.getElementById("walletiKAS").textContent = 
+      ethers.formatEther(walletBalance) + " iKAS";
+    
+    const balance = await constiCoin.balanceOf(userAddress);
+    document.getElementById("constiBalance").textContent = 
+      ethers.formatEther(balance) + " CONSTI";
+    
+    const rewards = await constiCoin.pendingRewards(userAddress);
+    document.getElementById("pendingRewards").textContent = 
+      ethers.formatEther(rewards) + " iKAS";
+    
+    // Enable/disable claim button
+    document.getElementById("claimBtn").disabled = parseFloat(ethers.formatEther(rewards)) === 0;
+  } catch (error) {
+    console.error("Holdings refresh error:", error);
+  }
+}
+
+// === SWAP FUNCTIONS ===
+
+async function swapToConsti() {
+  if (!liquidityPool || !userAddress) {
+    showStatus("swapStatus", "Please connect wallet first", "error");
+    return;
+  }
+  
+  const amountStr = document.getElementById("swapAmount").value;
+  if (!amountStr || parseFloat(amountStr) <= 0) {
+    showStatus("swapStatus", "Enter a valid amount", "error");
+    return;
+  }
+  
+  try {
+    const amount = ethers.parseEther(amountStr);
+    const gasPrice = ethers.parseUnits("2000", "gwei"); // IGRA requires min 2000 gwei
+    
+    showStatus("swapStatus", "Swapping... (may take 10-30s)", "loading");
+    
+    const tx = await liquidityPool.swapIKASForConsti({
+      value: amount,
+      gasPrice: gasPrice,
+      gasLimit: 500000
+    });
+    
+    showStatus("swapStatus", "Transaction sent: " + tx.hash.substring(0, 10) + "...", "info");
+    
+    const receipt = await tx.wait();
+    
+    // Calculate output amount 
+    const poolConsti = await constiCoin.balanceOf(LIQUIDITY_POOL_ADDRESS);
+    const pooliKAS = await provider.getBalance(LIQUIDITY_POOL_ADDRESS);
+    const poolPrice = await liquidityPool.getPrice();
+    const pricePerConsti = parseFloat(ethers.formatEther(poolPrice));
+    const fee = parseFloat(amountStr) * 0.003;
+    const netIn = parseFloat(amountStr) - fee;
+    const received = (netIn * pricePerConsti).toFixed(4);
+    lastSwapReceived = received;
+    
+    const txUrl = "https://explorer.galleon-testnet.igralabs.com/tx/" + tx.hash;
+    showStatus("swapStatus", 
+        "✅ <b>Swap Complete!</b><br>" +
+        "Sent: " + amountStr + " iKAS<br>" +
+        "Received: " + received + " CONSTI<br>" +
+        "Fee: " + fee.toFixed(4) + " iKAS (0.3%)<br>" +
+        "Tx: <a href='" + txUrl + "' target='_blank' style='color:#a855f7'>" + tx.hash.substring(0, 16) + "...</a>", 
+        "success");
+    document.getElementById("lastSwapReceived").textContent = received + " CONSTI";
+    await refreshHoldings();
+    await refreshStats();
+    
+  } catch (error) {
+    console.error("Swap error:", error);
+    showStatus("swapStatus", "Swap failed: " + (error.reason || error.message), "error");
+  }
+}
+
+async function swapToiKAS() {
+  if (!liquidityPool || !constiCoin || !userAddress) {
+    showStatus("swapBackStatus", "Please connect wallet first", "error");
+    return;
+  }
+  
+  const amountStr = document.getElementById("swapBackAmount").value;
+  if (!amountStr || parseFloat(amountStr) <= 0) {
+    showStatus("swapBackStatus", "Enter a valid amount", "error");
+    return;
+  }
+  
+  try {
+    const amount = ethers.parseEther(amountStr);
+    const gasPrice = ethers.parseUnits("2000", "gwei");
+    
+    // First approve
+    showStatus("swapBackStatus", "Approving CONSTI...", "loading");
+    const approveTx = await constiCoin.approve(LIQUIDITY_POOL_ADDRESS, amount, {
+      gasPrice: gasPrice,
+      gasLimit: 100000
+    });
+    await approveTx.wait();
+    
+    showStatus("swapBackStatus", "Swapping... (may take 10-30s)", "loading");
+    
+    const tx = await liquidityPool.swapConstiForIKAS(amount, {
+      gasPrice: gasPrice,
+      gasLimit: 500000
+    });
+    
+    showStatus("swapBackStatus", "Transaction sent: " + tx.hash.substring(0, 10) + "...", "info");
+    
+    await tx.wait();
+    
+    const poolPrice = await liquidityPool.getPrice();
+    const pricePerConsti = parseFloat(ethers.formatEther(poolPrice));
+    const amountSent = parseFloat(amountStr);
+    const fee = amountSent * 0.003;
+    const received = ((amountSent - fee) * pricePerConsti).toFixed(4);
+    
+    const txUrl = "https://explorer.galleon-testnet.igralabs.com/tx/" + tx.hash;
+    showStatus("swapBackStatus", 
+        "✅ <b>Swap Complete!</b><br>" +
+        "Sent: " + amountSent.toFixed(2) + " CONSTI<br>" +
+        "Received: " + received + " iKAS<br>" +
+        "Fee: " + fee.toFixed(4) + " CONSTI (0.3%)<br>" +
+        "Tx: <a href='" + txUrl + "' target='_blank' style='color:#f59e0b'>" + tx.hash.substring(0, 16) + "...</a>", 
+        "success");
+    await refreshHoldings();
+    await refreshStats();
+    
+  } catch (error) {
+    console.error("Swap back error:", error);
+    showStatus("swapBackStatus", "Swap failed: " + (error.reason || error.message), "error");
+  }
+}
+
+// === CLAIM REWARDS ===
+
+async function claimRewards() {
+  if (!constiCoin || !userAddress) {
+    showStatus("swapStatus", "Please connect wallet first", "error");
+    return;
+  }
+  
+  try {
+    const gasPrice = ethers.parseUnits("2000", "gwei");
+    showStatus("swapStatus", "Claiming rewards...", "loading");
+    
+    const tx = await constiCoin.claimRewards({
+      gasPrice: gasPrice,
+      gasLimit: 200000
+    });
+    
+    showStatus("swapStatus", "Transaction sent: " + tx.hash.substring(0, 10) + "...", "info");
+    
+    await tx.wait();
+    
+    const txUrl = "https://explorer.galleon-testnet.igralabs.com/tx/" + tx.hash;
+    showStatus("swapStatus", 
+        "✅ <b>Rewards Claimed!</b><br>" +
+        "Tx: <a href='" + txUrl + "' target='_blank' style='color:#a855f7'>" + tx.hash.substring(0, 16) + "...</a>", 
+        "success");
+    await refreshHoldings();
+    
+  } catch (error) {
+    console.error("Claim error:", error);
+    showStatus("swapStatus", "Claim failed: " + (error.reason || error.message), "error");
+  }
+}
+
+// === UTILITY ===
+
+function showStatus(elementId, message, type) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.innerHTML = `<div class="status ${type}">${message}</div>`;
+}
+
+// Debug toggle
+document.addEventListener("keydown", (e) => {
+  if (e.key === "d" && e.shiftKey) {
+    document.getElementById("debugCard").classList.toggle("hidden");
+  }
+});
+
+// Wait for DOM and ethers - attach onclick directly
+window.onload = function() {
+  const btn = document.getElementById("connectBtn");
+  if (btn) {
+    btn.onclick = function() {
+      console.log("CLICK");
+      connectWallet();
+    };
+  }
+  
+  // Log wallet detection for debug
+  console.log("window.kasware:", typeof window.kasware);
+  console.log("window.kasware?.ethereum:", typeof window.kasware?.ethereum);
+  console.log("window.ethereum:", typeof window.ethereum);
+  console.log("window.ethereum?.isKasWare:", window.ethereum?.isKasWare);
+};
+
+// Manual refresh only - MetalpriceAPI has 100 requests/month limit
+
+console.log("ConstiCoin Interface loaded. Open http://localhost:8888/consti.html to test!");
+</script>
+</body>
+</html>
