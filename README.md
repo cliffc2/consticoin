@@ -2,19 +2,14 @@
 
 Algorithmic stablecoin pegged to Constitutional Dollar (371.25 grains silver = 0.7734375 oz) deployed on Igra Galleon Testnet.
 
-## Inspired by Djed & AgeUSD Protocol
+## Inspired by Dexy
 
-This implementation is based on the **Djed** algorithmic stablecoin protocol by Alexander Chepurnoy (Alex) and the Ergo team.
+This implementation is based on the **Dexy** algorithmic stablecoin protocol by Alexander Chepurnoy (kushti).
 
-### Key Papers:
-- **[Djed: A Formally Verified Crypto-Backed Pegged Algorithmic Stablecoin](https://eprint.iacr.org/2021/1069.pdf)** - ICR paper by Joachim Zahnentferner, Dmytro Kaidalov, et al.
-- **AgeUSD Protocol** - Developed by Ergo Foundation, EMURGO, and IOG
+### Paper:
+- **[Dexy: A Stablecoin](https://github.com/kushti/dexy-stable/blob/master/paper-lipics/dexy.pdf)** - Academic paper by Alexander Chepurnoy
 
-### Original Implementations:
-- **SigmaUSD** - First AgeUSD deployment on Ergo (Q1 2021)
-- Developed by Alexander Chepurnoy, Robert Kornacki, and the Ergo community
-
-The fundamental mechanism—crypto-backed reserves with dual tokens (stablecoin + reserve coin)—originates from this research. ConstiCoin adapts these principles for the IGRA/EVM ecosystem with silver as collateral instead of ergo.
+Dexy is a crypto-backed algorithmic stablecoin with a novel approach to stability through reserve mechanisms. ConstiCoin adapts these principles for the IGRA/EVM ecosystem.
 
 ## Philosophy
 
