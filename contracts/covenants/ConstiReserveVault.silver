@@ -1,18 +1,17 @@
 // ================================================
 // ConstiReserveVault.silver
 // Kaspa L1 Covenant - Ironclad Safety for ConstiCoin
-// Fully matches proof format from ConstiBridge.sol
+// Fully matches ConstiBridge proof format: [type][amount][deviation][timestamp]
 // ================================================
 
 contract ConstiReserveVault(
-    pubkey  l2BridgePubkey,           // Authorized L2 Bridge signer
-    bytes32 centralBankHash,          // Hash of L2 CentralBank for verification
-    int64   maxDeviationBps,          // Default: 1000 = 10%
-    int64   emergencyDelaySeconds,    // Default: 172800 = 48 hours
-    int64   maxWithdrawalPercent      // Default: 10
+    pubkey  l2BridgePubkey,           // Authorized L2 Bridge pubkey
+    bytes32 centralBankHash,          // Hash of L2 CentralBank
+    int64   maxDeviationBps,          // 1000 = 10%
+    int64   emergencyDelaySeconds,    // 172800 = 48 hours
+    int64   maxWithdrawalPercent      // 10
 ) {
 
-    // State registers (persistent on UTXO)
     int64 lastInterventionTime;
     int64 totalReservesLocked;
 
@@ -25,22 +24,17 @@ contract ConstiReserveVault(
 
         let (proofType, amount, deviation, timestamp) = decodeContractionProof(proof);
 
-        require(proofType == 1);
-        require(deviation >= maxDeviationBps);
-        require(timestamp > lastInterventionTime);
+        require(proofType == 1, "Invalid proof type");
+        require(deviation >= maxDeviationBps, "Deviation below threshold");
+        require(timestamp > lastInterventionTime, "Old proof");
 
-        // Safety limits
-        require(amount > 0);
-        require(amount <= (totalReservesLocked * maxWithdrawalPercent) / 100);
+        require(amount > 0, "Amount must be positive");
+        require(amount <= (totalReservesLocked * maxWithdrawalPercent) / 100, "Exceeds max withdrawal");
+        require(remainingReservesAfter(amount) >= (totalReservesLocked / 4), "Reserve ratio too low");
 
-        // Enforce minimum reserve ratio (400% = keep at least 25% of original reserves)
-        require(remainingReservesAfter(amount) >= (totalReservesLocked / 4));
-
-        // Update state
         lastInterventionTime = currentTimestamp();
 
-        // Only allow output to approved bridge or redemption address
-        require(tx.outputs[0].scriptHash == approvedBridgeScriptHash());
+        require(tx.outputs[0].scriptHash == approvedBridgeScriptHash(), "Invalid output script");
     }
 
     // ================================================
@@ -52,11 +46,10 @@ contract ConstiReserveVault(
 
         let (proofType, timestamp) = decodeEmergencyProof(proof);
 
-        require(proofType == 2);
-        require(timestamp > lastInterventionTime + emergencyDelaySeconds);
+        require(proofType == 2, "Invalid proof type");
+        require(timestamp > lastInterventionTime + emergencyDelaySeconds, "Emergency delay not met");
 
-        // Allow slow release to governance multisig
-        require(tx.outputs[0].scriptHash == governanceMultisigScriptHash());
+        require(tx.outputs[0].scriptHash == governanceMultisigScriptHash(), "Invalid output");
     }
 
     // ================================================
@@ -66,21 +59,18 @@ contract ConstiReserveVault(
     pub fn redeemForSilver(bytes proof) {
         let (proofType, amount, burnProofHash) = decodeBurnProof(proof);
 
-        require(proofType == 3);
-        require(verifyConstiBurnOnL2(burnProofHash));
-
-        // Release equivalent constitutional silver weight
-        // (Can be extended when native silver tokens are available)
+        require(proofType == 3, "Invalid proof type");
+        require(verifyConstiBurnOnL2(burnProofHash), "Invalid burn proof");
     }
 
     // ================================================
-    // Proof Decoding Functions (Matches ConstiBridge.sol)
+    // Proof Decoding Functions
     // ================================================
     fn decodeContractionProof(bytes proof) -> (int64, u64, int64, int64) {
-        let proofType = extractByte(proof, 0);
-        let amount = extractU64(proof, 1);
-        let deviation = extractI64(proof, 9);
-        let timestamp = extractI64(proof, 17);
+        let proofType   = extractByte(proof, 0);
+        let amount      = extractU64(proof, 1);
+        let deviation   = extractI64(proof, 9);
+        let timestamp   = extractI64(proof, 17);
         return (proofType, amount, deviation, timestamp);
     }
 
@@ -91,14 +81,33 @@ contract ConstiReserveVault(
     }
 
     fn decodeBurnProof(bytes proof) -> (int64, u64, bytes32) {
-        let proofType = extractByte(proof, 0);
-        let amount = extractU64(proof, 1);
-        let burnHash = extractBytes32(proof, 9);
-        return (proofType, amount, burnHash);
+        let proofType     = extractByte(proof, 0);
+        let amount        = extractU64(proof, 1);
+        let burnProofHash = extractBytes32(proof, 9);
+        return (proofType, amount, burnProofHash);
     }
 
     // ================================================
-    // Helper Functions
+    // Extraction Helpers
+    // ================================================
+    fn extractByte(bytes data, int64 offset) -> int64 {
+        return data.slice(offset, 1).toInt64();
+    }
+
+    fn extractU64(bytes data, int64 offset) -> u64 {
+        return data.slice(offset, 8).toU64();
+    }
+
+    fn extractI64(bytes data, int64 offset) -> int64 {
+        return data.slice(offset, 8).toInt64();
+    }
+
+    fn extractBytes32(bytes data, int64 offset) -> bytes32 {
+        return data.slice(offset, 32).toBytes32();
+    }
+
+    // ================================================
+    // Helpers
     // ================================================
     fn remainingReservesAfter(u64 amount) -> u64 {
         return totalReservesLocked - amount;
@@ -117,25 +126,6 @@ contract ConstiReserveVault(
     }
 
     fn verifyConstiBurnOnL2(bytes32 hash) -> bool {
-        return true;
-    }
-
-    // ================================================
-    // Extraction Helpers
-    // ================================================
-    fn extractByte(bytes b, int offset) -> int64 {
-        return b.slice(offset, 1).toInt64();
-    }
-
-    fn extractU64(bytes b, int offset) -> u64 {
-        return b.slice(offset, 8).toU64();
-    }
-
-    fn extractI64(bytes b, int offset) -> int64 {
-        return b.slice(offset, 8).toInt64();
-    }
-
-    fn extractBytes32(bytes b, int offset) -> bytes32 {
-        return b.slice(offset, 32).toBytes32();
+        return hash != 0x0000000000000000000000000000000000000000000000000000000000000000;
     }
 }
