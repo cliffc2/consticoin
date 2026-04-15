@@ -8,6 +8,10 @@ contract CentralBank is Ownable {
 
     uint256 public constant SILVER_MULTIPLIER = 7734375;
     uint256 public constant TARGET_SILVER_GRAINS = 371.25e18;
+    
+    // MetalMetric oracle configuration
+    address public oracleUpdater = address(0);
+    uint256 public oracleStalenessThreshold = 5 minutes;
 
     uint256 public expansionLimit = 200;
     uint256 public contractionLimit = 200;
@@ -130,16 +134,48 @@ contract CentralBank is Ownable {
     }
 
     function submitPrice(uint256 _price) external onlyAIAgent(AgentType.MARKET_DATA) {
+        _submitPrice(_price);
+    }
+    
+    function submitPriceOwner(uint256 _price) external onlyOwner {
+        _submitPrice(_price);
+    }
+    
+    function _submitPrice(uint256 _price) internal {
         require(_price > 0, "Invalid price");
         currentSilverPrice = _price;
         lastPriceUpdate = block.timestamp;
         circuitBreakerTriggered = false;
         emit PriceSubmitted(msg.sender, _price);
     }
+    
+    function submitPriceFromOracle() external {
+        require(msg.sender == oracleUpdater || oracleUpdater == address(0), "Not oracle updater");
+        (bool success, bytes memory data) = oracleUpdater.staticcall(
+            abi.encodeWithSignature("getSilverPrice()")
+        );
+        require(success, "Oracle call failed");
+        uint256 price = abi.decode(data, (uint256));
+        require(price > 0, "Invalid oracle price");
+        currentSilverPrice = price;
+        lastPriceUpdate = block.timestamp;
+        circuitBreakerTriggered = false;
+        emit PriceSubmitted(msg.sender, price);
+    }
+    
+    function setOracleUpdater(address _updater) external onlyOwner {
+        oracleUpdater = _updater;
+    }
+    
+    function isOracleFresh() external view returns (bool) {
+        return !isPriceStale();
+    }
 
     function getTargetPrice() public view returns (uint256) {
         require(currentSilverPrice > 0, "No price");
-        return (currentSilverPrice * SILVER_MULTIPLIER) / 1e7;
+        // silverPrice in dollars * multiplier * 1e18 = target in wei
+        // $79 * 0.7734375 * 1e18 = 61101562500000000000000 wei = 61.1 iKAS
+        return (currentSilverPrice * SILVER_MULTIPLIER * 1e18) / 1e7;
     }
 
     function getPoolPrice() public view returns (uint256) {

@@ -68,8 +68,9 @@ This implementation includes **Kaspa L1 covenants** for ironclad security:
 | Contract | Address |
 |----------|---------|
 | ConstiCoin | `0x2a9E9C6a89fAb3C32946554AFF2BE9D3C2c2EFDC` |
-| CentralBank | `0xf8bea045952b3a095AbC10d93139f8D08095403a` |
+| CentralBank | `0x45F208d9c22E2367c0eFc7C08a01DC3ef56D34f6` |
 | LiquidityPool | `0xe07dC9125560b045377553d673b2b5a96f223F7f` |
+| ConstiOracle | `0x47816a48f90544f2fF964ec7f71D1e3C29049c2b` |
 
 ## Network
 

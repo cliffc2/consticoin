@@ -209,6 +209,9 @@
         <button class="btn-secondary" style="width: auto; padding: 8px 12px; margin: 0;" onclick="refreshStats()">
           ↻ Refresh
         </button>
+        <button class="btn-secondary" style="width:auto;padding:8px 16px;margin-left:10px" onclick="syncOracle()">
+          ⛓ Sync Oracle
+        </button>
       </div>
       
       <div class="stat-grid">
@@ -335,12 +338,13 @@
 
 // Contract addresses
 const CONSTI_ADDRESS = "0x2a9E9C6a89fAb3C32946554AFF2BE9D3C2c2EFDC";
-const CENTRAL_BANK_ADDRESS = "0xf8bea045952b3a095AbC10d93139f8D08095403a";
+const CENTRAL_BANK_ADDRESS = "0x45F208d9c22E2367c0eFc7C08a01DC3ef56D34f6";
 const LIQUIDITY_POOL_ADDRESS = "0xe07dC9125560b045377553d673b2b5a96f223F7f";
+const ORACLE_ADDRESS = "0x47816a48f90544f2fF964ec7f71D1e3C29049c2b";
 const CHAIN_ID = 38836;
 
-// MetalpriceAPI
-const METAL_API_KEY = "cbe850e1d654796083cd84cf02a06f28";
+// MetalMetric API (free, no key required)
+const METAL_API_KEY = null; // Not needed for MetalMetric
 const SILVER_MULTIPLIER = 0.7734375; // 371.25 grains = 0.7734375 oz
 
 // State
@@ -437,47 +441,65 @@ function initContracts() {
   liquidityPool = new ethers.Contract(LIQUIDITY_POOL_ADDRESS, LIQUIDITY_POOL_ABI, signer);
 }
 
-// === METALPRICEAPI ===
+// === METRIC API (MetalMetric - Free, No Key) ===
 
 async function fetchSilverPrice() {
   console.log("Fetching silver price...");
   
   const fallbackPrice = 28.50;
   
-  if (!METAL_API_KEY) {
-    silverPriceUSD = fallbackPrice;
-    document.getElementById("silverPrice").textContent = "$" + silverPriceUSD.toFixed(2) + " (manual)";
-    return silverPriceUSD;
+  // Try MetalMetric API
+  try {
+    const res = await fetch('https://metalmetric.com/api/gpt?action=spot_prices&metal=silver', { mode: 'cors' });
+    if (!res.ok) throw new Error("MetalMetric HTTP " + res.status);
+    const data = await res.json();
+    if (data && data.prices && data.prices.silver && data.prices.silver.price_per_oz) {
+      silverPriceUSD = parseFloat(data.prices.silver.price_per_oz);
+      console.log("MetalMetric price:", silverPriceUSD);
+      document.getElementById("silverPrice").textContent = "$" + silverPriceUSD.toFixed(2);
+      return silverPriceUSD;
+    }
+  } catch (e) {
+    console.error("MetalMetric failed:", e.message);
+  }
+  
+  // Try Gold-API fallback
+  try {
+    const res = await fetch('https://www.gold-api.com/api/xag', { mode: 'cors', headers: { 'Accept': 'application/json' } });
+    const data = await res.json();
+    if (data && data.price) {
+      silverPriceUSD = data.price;
+      document.getElementById("silverPrice").textContent = "$" + silverPriceUSD.toFixed(2) + " (fallback)";
+      return silverPriceUSD;
+    }
+  } catch (e) {
+    console.error("Gold-API failed:", e.message);
+  }
+  
+  // All APIs failed, use fallback
+  silverPriceUSD = fallbackPrice;
+  document.getElementById("silverPrice").textContent = "$" + silverPriceUSD.toFixed(2) + " (offline)";
+  return silverPriceUSD;
+}
+
+async function syncOracle() {
+  if (!signer || !silverPriceUSD) {
+    console.log("Cannot sync oracle: signer or price not available");
+    return;
   }
   
   try {
-    // API: base=XAG, currencies=USD returns 1 oz silver = X USD
-    const url = `https://api.metalpriceapi.com/v1/latest?api_key=${METAL_API_KEY}&base=XAG&currencies=USD`;
-    console.log("API URL:", url);
+    const oracle = new ethers.Contract(ORACLE_ADDRESS, [
+      "function updatePrice(uint256 _price)",
+      "function getSilverPrice() view returns (uint256)"
+    ], signer);
     
-    const res = await fetch(url, { method: 'GET', mode: 'cors' });
-    console.log("Response status:", res.status);
-    
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    
-    const data = await res.json();
-    console.log("API Data:", JSON.stringify(data));
-    
-    // rates.USD = USD per ounce of silver
-    if (data.success && data.rates && data.rates.USD) {
-      silverPriceUSD = data.rates.USD;
-      console.log("Silver price (USD/oz):", silverPriceUSD);
-      const timestamp = new Date().toLocaleTimeString();
-      document.getElementById("silverPrice").textContent = "$" + silverPriceUSD.toFixed(2);
-      return silverPriceUSD;
-    } else {
-      throw new Error("Invalid API response");
-    }
+    const priceWei = Math.floor(silverPriceUSD * 100); // Store with 2 decimals
+    const tx = await oracle.updatePrice(priceWei);
+    document.getElementById("silverPrice").textContent = "$" + silverPriceUSD.toFixed(2) + " (synced)";
+    console.log("Oracle updated:", tx.hash);
   } catch (error) {
-    console.error("Silver price fetch error:", error);
-    silverPriceUSD = fallbackPrice;
-    document.getElementById("silverPrice").textContent = "$" + silverPriceUSD.toFixed(2) + " (manual)";
-    return silverPriceUSD;
+    console.error("Oracle sync error:", error);
   }
 }
 
