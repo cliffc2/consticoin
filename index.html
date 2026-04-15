@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kaspa Oracle 🔮</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      color: #fff;
+      padding: 20px;
+    }
+    .container { max-width: 600px; margin: 0 auto; }
+    h1 { text-align: center; font-size: 2.5rem; margin-bottom: 10px; }
+    .subtitle { text-align: center; color: #a0a0a0; margin-bottom: 30px; }
+    
+    .card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    
+    button {
+      width: 100%;
+      padding: 14px 20px;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(90deg, #6c5ce7, #a855f7);
+      color: white;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(108,92,231,0.4); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .btn-secondary {
+      background: rgba(255,255,255,0.1);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    
+    input, textarea {
+      width: 100%;
+      padding: 14px;
+      font-size: 1rem;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      color: white;
+      margin-bottom: 12px;
+    }
+    input:focus, textarea:focus { outline: none; border-color: #a855f7; }
+    textarea { min-height: 100px; resize: vertical; }
+    
+    .status {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+    }
+    .status.info { background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.3); }
+    .status.success { background: rgba(34,197,94,0.2); border: 1px solid rgba(34,197,94,0.3); }
+    .status.error { background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.3); }
+    .status.loading { background: rgba(168,85,247,0.2); border: 1px solid rgba(168,85,247,0.3); }
+    
+    .hidden { display: none; }
+    
+    .wallet-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+    }
+    .wallet-badge {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, #6c5ce7, #a855f7);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+    
+    .response-box {
+      background: linear-gradient(135deg, rgba(108,92,231,0.1), rgba(168,85,247,0.1));
+      border: 1px solid rgba(168,85,247,0.3);
+      border-radius: 12px;
+      padding: 20px;
+      white-space: pre-wrap;
+      font-family: 'Courier New', monospace;
+      line-height: 1.6;
+    }
+    
+    .loader {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 10px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    .price {
+      font-size: 0.85rem;
+      color: #a0a0a0;
+      text-align: center;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔮 Kaspa Oracle</h1>
+    <p class="subtitle">Ask the spirits, receive wisdom</p>
+    
+    <!-- Wallet Connect -->
+    <div id="connectSection" class="card">
+      <div id="walletConnected" class="hidden">
+        <div class="wallet-info">
+          <div class="wallet-badge">👻</div>
+          <div>
+            <div style="font-weight: 600;" id="walletAddress"></div>
+            <div style="font-size: 0.85rem; color: #a0a0a0;">Connected to Igra</div>
+          </div>
+        </div>
+      </div>
+      <div id="walletDisconnected">
+        <button id="connectBtn" class="btn-primary">Connect Wallet</button>
+        <p style="text-align: center; color: #a0a0a0; margin-top: 12px; font-size: 0.9rem;">
+          Supports: MetaMask, Kasware, Kastle
+        </p>
+      </div>
+    </div>
+    
+    <!-- Ask Question -->
+    <div id="askSection" class="card hidden">
+      <h3 style="margin-bottom: 16px;">Ask the Oracle</h3>
+      <textarea id="questionInput" placeholder="Ask your question... (max 500 chars)" maxlength="500"></textarea>
+      <button id="askBtn" class="btn-primary">Ask Oracle (0.01 iKAS)</button>
+      <p class="price">Price: 0.01 iKAS • Network: Igra Galleon Testnet</p>
+    </div>
+    
+    <!-- Status Messages -->
+    <div id="status" class="hidden"></div>
+    
+    <!-- Response -->
+    <div id="responseSection" class="card hidden">
+      <h3 style="margin-bottom: 16px;">🔮 The Oracle Responds</h3>
+      <div id="responseText" class="response-box"></div>
+    </div>
+    
+    <!-- Network Error -->
+    <div id="networkError" class="card hidden">
+      <div class="status error">
+        <strong>Wrong Network!</strong><br>
+        Please switch to <strong>Igra Galleon Testnet</strong> (Chain ID: 38836)
+      </div>
+      <button id="switchNetworkBtn" class="btn-secondary">Switch Network</button>
+    </div>
+  </div>
+
+  <script>
+    let ORACLE_ADDRESS = '0x5Ff635c26866939fC857BBa69c69FE786Da2F2a8'; // Replace with deployed address
+    const IGRA_CHAIN_ID = 38836;
+    const PRICE = '0.01'; // iKAS
+    
+    // Minimal ABI - just for payment (function selector)
+    const ORACLE_ABI = [
+      'function ask(string) external payable'
+    ];
+    
+    let provider, signer, userAddress;
+    
+    // DOM Elements
+    const connectBtn = document.getElementById('connectBtn');
+    const askBtn = document.getElementById('askBtn');
+    const switchNetworkBtn = document.getElementById('switchNetworkBtn');
+    const questionInput = document.getElementById('questionInput');
+    const status = document.getElementById('status');
+    const responseSection = document.getElementById('responseSection');
+    const responseText = document.getElementById('responseText');
+    const walletConnected = document.getElementById('walletConnected');
+    const walletDisconnected = document.getElementById('walletDisconnected');
+    const walletAddress = document.getElementById('walletAddress');
+    const askSection = document.getElementById('askSection');
+    const networkError = document.getElementById('networkError');
+    
+    // Helper Functions
+    function showStatus(msg, type = 'info') {
+      status.className = `status ${type}`;
+      status.textContent = msg;
+      status.classList.remove('hidden');
+    }
+    
+    function hideStatus() {
+      status.classList.add('hidden');
+    }
+    
+    function formatAddress(addr) {
+      return addr.slice(0, 6) + '...' + addr.slice(-4);
+    }
+    
+    async function checkNetwork() {
+      const network = await provider.getNetwork();
+      return network.chainId === BigInt(IGRA_CHAIN_ID);
+    }
+    
+    // Connect Wallet
+    connectBtn.addEventListener('click', async () => {
+      console.log('Connect clicked');
+      try {
+        if (!window.ethereum) {
+          console.log('No ethereum provider');
+          showStatus('No wallet found! Install MetaMask, Kasware, or Kastle.', 'error');
+          return;
+        }
+        
+        // Request account access first
+        console.log('Requesting accounts...');
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        console.log('Got accounts:', accounts);
+        
+        if (!accounts || accounts.length === 0) {
+          showStatus('No account found', 'error');
+          return;
+        }
+        
+        userAddress = accounts[0];
+        console.log('User address:', userAddress);
+        
+        // Try switching to correct network (ignore errors)
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x' + IGRA_CHAIN_ID.toString(16) }]
+          });
+          console.log('Network switched or already correct');
+        } catch (netErr) {
+          console.log('Network switch error (may be OK):', netErr.message);
+        }
+        
+        // Now create provider
+        console.log('Creating provider...');
+        provider = new ethers.BrowserProvider(window.ethereum);
+        
+        console.log('Getting signer...');
+        signer = await provider.getSigner();
+        
+        console.log('Creating contract...');
+        oracle = new ethers.Contract(ORACLE_ADDRESS, ORACLE_ABI, signer);
+        console.log('Contract created');
+        
+        // Hide network error if any
+        networkError.classList.add('hidden');
+        
+        // Update UI
+        walletAddress.textContent = formatAddress(userAddress);
+        walletConnected.classList.remove('hidden');
+        walletDisconnected.classList.add('hidden');
+        askSection.classList.remove('hidden');
+        showStatus('Connected!', 'success');
+        
+      } catch (err) {
+        console.error('Full connection error:', err);
+        showStatus('Error connecting: ' + err.message, 'error');
+      }
+    });
+    
+    // Switch Network
+    switchNetworkBtn.addEventListener('click', async () => {
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x' + IGRA_CHAIN_ID.toString(16) }]
+        });
+      } catch (err) {
+        showStatus('Could not switch network. Please switch manually.', 'error');
+      }
+    });
+    
+    // Ask Question
+    askBtn.addEventListener('click', async () => {
+      const question = questionInput.value.trim();
+      if (!question) {
+        showStatus('Please enter a question', 'error');
+        return;
+      }
+      
+      if (ORACLE_ADDRESS === 'YOUR_CONTRACT_ADDRESS_HERE' || !ORACLE_ADDRESS) {
+        showStatus('Contract not deployed! Deploy KaspaOracle.sol first.', 'error');
+        return;
+      }
+      
+      // Setup contract
+      oracle = new ethers.Contract(ORACLE_ADDRESS, ORACLE_ABI, signer);
+      
+      askBtn.disabled = true;
+      askBtn.innerHTML = '<span class="loader"></span>Consulting the Oracle...';
+      showStatus('Sending transaction...', 'loading');
+      responseSection.classList.add('hidden');
+      
+      try {
+        // Send transaction manually to avoid estimateGas issues
+        const priceWei = ethers.parseEther(PRICE);
+        const gasPrice = ethers.parseUnits('2200', 'gwei'); // Igra min ~2000 gwei
+        const iface = new ethers.Interface([
+          'function ask(string) external payable returns (bytes32)'
+        ]);
+        const data = iface.encodeFunctionData('ask', [question]);
+        
+        const tx = await signer.sendTransaction({
+          to: ORACLE_ADDRESS,
+          value: priceWei,
+          data: data,
+          gasLimit: 200000,
+          gasPrice: gasPrice
+        });
+        
+        showStatus('Payment sent! Processing question with webbot3...', 'info');
+        const receipt = await tx.wait();
+        
+        // Call webbot3 API directly for the answer
+        showStatus('Analyzing... This may take a few seconds.', 'info');
+        
+        try {
+          const apiResponse = await fetch('http://localhost:8000/api/answer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question: question })
+          });
+          
+          if (!apiResponse.ok) {
+            throw new Error('API error: ' + apiResponse.status);
+          }
+          
+          const result = await apiResponse.json();
+          
+          // Display the report
+          responseText.textContent = result.response;
+          responseSection.classList.remove('hidden');
+          showStatus('✨ Report generated!', 'success');
+          
+        } catch (apiErr) {
+          console.error('API Error:', apiErr);
+          showStatus('Payment confirmed but could not get report. Is webbot3 server running?', 'error');
+        }
+        
+      } catch (err) {
+        showStatus('Error: ' + err.message, 'error');
+      }
+      
+      askBtn.disabled = false;
+      askBtn.textContent = 'Ask Oracle (0.01 iKAS)';
+    });
+    
+    // Auto-connect if previously connected
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', () => location.reload());
+      window.ethereum.on('chainChanged', () => location.reload());
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>KasWare Detection Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js"></script>
+</head>
+<body style="background:#1a1a2e;color:#fff;font-family:sans-serif;padding:20px;max-width:600px;margin:0 auto;">
+  <h1>KasWare Detection Test</h1>
+  
+  <div style="background:rgba(255,255,255,0.1);padding:15px;border-radius:8px;margin-bottom:20px;">
+    <h3>Check these in browser console (F12):</h3>
+    <ul style="margin:0;padding-left:20px;">
+      <li>window.kasware</li>
+      <li>window.kasware?.ethereum</li> 
+      <li>window.ethereum</li>
+      <li>window.ethereum?.isKasWare</li>
+    </ul>
+  </div>
+  
+  <button id="testBtn" style="padding:15px 30px;background:#6c5ce7;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:16px;">
+    Test Wallet Connection
+  </button>
+  
+  <pre id="output" style="margin-top:20px;padding:15px;background:rgba(0,0,0,0.3);border-radius:8px;overflow-x:auto;"></pre>
+
+  <script>
+    function output(msg) {
+      document.getElementById("output").textContent += msg + "\n";
+      console.log(msg);
+    }
+    
+    output("=== Wallet Detection ===");
+    output("kasware: " + typeof window.kasware);
+    output("kasware.ethereum: " + typeof window.kasware?.ethereum);
+    output("ethereum: " + typeof window.ethereum);
+    output("ethereum.isKasWare: " + window.ethereum?.isKasWare);
+    
+    document.getElementById("testBtn").onclick = function() {
+      output("\n=== Testing connection ===");
+      
+      // Method 1: kasware.ethereum
+      if (window.kasware?.ethereum) {
+        output("Method 1: Using window.kasware.ethereum");
+        window.kasware.ethereum.request({ method: 'eth_requestAccounts' })
+          .then(accounts => output("SUCCESS: " + JSON.stringify(accounts)))
+          .catch(err => output("Error: " + err.message));
+        return;
+      }
+      
+      // Method 2: window.ethereum if it has isKasWare
+      if (window.ethereum?.isKasWare) {
+        output("Method 2: Using window.ethereum (isKasWare=true)");
+        window.ethereum.request({ method: 'eth_requestAccounts' })
+          .then(accounts => output("SUCCESS: " + JSON.stringify(accounts)))
+          .catch(err => output("Error: " + err.message));
+        return;
+      }
+      
+      // Method 3: Fallback to window.ethereum
+      if (window.ethereum) {
+        output("Method 3: Using window.ethereum");
+        window.ethereum.request({ method: 'eth_requestAccounts' })
+          .then(accounts => output("SUCCESS: " + JSON.stringify(accounts)))
+          .catch(err => output("Error: " + err.message));
+        return;
+      }
+      
+      output("NO WALLET FOUND!");
+      output("Install KasWare: https://kasware.xyz");
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>KasWare EVM Setup Guide</title>
+  <style>
+    body { 
+      background: #1a1a2e; 
+      color: #fff; 
+      font-family: sans-serif; 
+      padding: 20px; 
+      max-width: 700px; 
+      margin: 0 auto; 
+      line-height: 1.6;
+    }
+    h1 { color: #a855f7; }
+    h2 { color: #6c5ce7; border-bottom: 1px solid #333; padding-bottom: 10px; }
+    .step {
+      background: rgba(255,255,255,0.05);
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+    }
+    code {
+      background: #333;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .warning {
+      background: rgba(239,68,68,0.2);
+      border: 1px solid rgba(239,68,68,0.3);
+      padding: 15px;
+      border-radius: 8px;
+    }
+    a { color: #a855f7; }
+  </style>
+</head>
+<body>
+  <h1>KasWare EVM Setup Guide</h1>
+  
+  <div class="step">
+    <h2>1. Switch to IGRA Galleon in KasWare</h2>
+    <p>Click KasWare icon → Select <strong>IGRA Galleon Testnet</strong> from network dropdown</p>
+  </div>
+  
+  <div class="step">
+    <h2>2. Open KasWare Settings</h2>
+    <p>Click the ⚙️ gear icon (Settings) → Look for <strong>EVM</strong> or <strong>Network</strong> settings</p>
+  </div>
+  
+  <div class="step">
+    <h2>3. Enable EVM Support</h2>
+    <p>Make sure these are enabled:</p>
+    <ul>
+      <li>☑️ <strong>Enable EVM Support</strong></li>
+      <li>☑️ <strong>Injected Provider</strong></li>
+      <li>☑️ <strong>Web3 Compatibility</strong></li>
+    </ul>
+  </div>
+  
+  <div class="step">
+    <h2>4. If no settings, try this:</h2>
+    <p>1. Open KasWare → Click network dropdown</p>
+    <p>2. Select <strong>IGRA Galleon</strong></p>
+    <p>3. Then refresh this page</p>
+  </div>
+  
+  <p><a href="http://localhost:8888/kasware-deep.html">→ Test Again Here</a></p>
+  
+  <div class="warning">
+    <strong>Key:</strong> You MUST switch to IGRA Galleon in KasWare first before the EVM provider will inject!
+  </div>
+</body>
+</html>

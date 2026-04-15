@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>KasWare Deep Detection</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js"></script>
+</head>
+<body style="background:#1a1a2e;color:#fff;font-family:sans-serif;padding:20px;max-width:800px;margin:0 auto;">
+  <h1>KasWare Detection Test</h1>
+  
+  <div style="background:rgba(0,0,0,0.3);padding:20px;border-radius:8px;margin-bottom:20px;">
+    <h3>Step 1: Check browser console (F12) for all detections</h3>
+  </div>
+  
+  <button id="testBtn" style="padding:15px 30px;background:#6c5ce7;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:16px;margin-right:10px;">
+    Run Full Detection
+  </button>
+  
+  <button id="retryBtn" style="padding:15px 30px;background:#22c55e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:16px;">
+    Retry Connection
+  </button>
+  
+  <pre id="output" style="margin-top:20px;padding:15px;background:rgba(0,0,0,0.3);border-radius:8px;overflow-x:auto;max-height:400px;font-size:12px;"></pre>
+
+  <script>
+    function output(msg) {
+      document.getElementById("output").textContent += msg + "\n";
+      console.log(msg);
+    }
+    
+    function detect() {
+      output("=== Full Detection ===");
+      
+      // Check all possible KasWare locations
+      const checks = [
+        ["window.kasware", window.kasware],
+        ["window.kasware.ethereum", window.kasware?.ethereum],
+        ["window.kasware.ethereum.isKasWare", window.kasware?.ethereum?.isKasWare],
+        ["window.kaspadev", window.kaspadev],
+        ["window.kaspadev?.ethereum", window.kaspadev?.ethereum],
+        ["window.ethereum", window.ethereum],
+        ["window.ethereum?.isKasWare", window.ethereum?.isKasWare],
+        ["window.ethereum?.providers", window.ethereum?.providers],
+      ];
+      
+      checks.forEach(([name, val]) => {
+        output(name + ": " + (val !== undefined ? "EXISTS" : "undefined"));
+      });
+      
+      // Check if running on file:// vs http://
+      output("\nPage URL: " + window.location.href);
+      output("Protocol: " + window.location.protocol);
+      
+      // Try different detection methods
+      output("\n=== Try KasWare Methods ===");
+      
+      // Method 1: Direct access
+      if (window.kasware) {
+        output("window.kasware EXISTS!");
+        if (window.kasware.ethereum) {
+          output("  .ethereum exists, trying request...");
+          window.kasware.ethereum.request({method:'eth_requestAccounts'})
+            .then(a => output("  SUCCESS: " + JSON.stringify(a)))
+            .catch(e => output("  Error: " + e.message));
+        }
+      }
+      
+      // Method 2: EIP-6963 (multiple providers)
+      if (window.ethereum?.providers) {
+        output("\nEIP-6963 providers found:");
+        window.ethereum.providers.forEach((p, i) => {
+          output("  Provider " + i + ": " + (p.isKasWare ? "KASWARE!" : "other"));
+        });
+      }
+    }
+    
+    function retry() {
+      output("\n=== Retry Connection ===");
+      
+      // Try all known methods
+      const methods = [
+        { name: "kasware.ethereum", get: () => window.kasware?.ethereum },
+        { name: "kasware", get: () => window.kasware },
+        { name: "ethereum (isKasWare)", get: () => window.ethereum?.isKasWare ? window.ethereum : null },
+        { name: "ethereum", get: () => window.ethereum },
+      ];
+      
+      for (let m of methods) {
+        try {
+          let p = m.get();
+          if (p) {
+            output("Trying " + m.name + ": ");
+            p.request({method:'eth_requestAccounts'})
+              .then(a => {
+                output("  SUCCESS! Account: " + a[0]);
+              })
+              .catch(e => output("  Error: " + e.message));
+            return;
+          }
+        } catch(e) {
+          output(m.name + " error: " + e.message);
+        }
+      }
+      output("No provider worked!");
+    }
+    
+    document.getElementById("testBtn").onclick = detect;
+    document.getElementById("retryBtn").onclick = retry;
+    
+    // Run on load too
+    setTimeout(detect, 1000);
+  </script>
+</body>
+</html>

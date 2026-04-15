@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ConstiCoin Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js"></script>
+</head>
+<body style="background:#1a1a2e;color:#fff;font-family:sans-serif;padding:20px;">
+  <h1>ConstiCoin - Test</h1>
+  <p>Check console (F12) for details</p>
+  
+  <button id="connectBtn" style="padding:15px 30px;background:#6c5ce7;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:16px;">
+    Connect Wallet
+  </button>
+  
+  <div id="result" style="margin-top:20px;padding:15px;background:rgba(255,255,255,0.1);border-radius:8px;min-height:50px;">
+    Check console (F12)
+  </div>
+
+  <script>
+    console.log("=== KasWare Detection ===");
+    console.log("window.kasware:", window.kasware);
+    console.log("window.kasware?.ethereum:", window.kasware?.ethereum);
+    console.log("window.ethereum:", window.ethereum);
+    console.log("window.ethereum?.isKasWare:", window.ethereum?.isKasWare);
+    
+    // List all keys on window that contain 'kas' or 'ware'
+    console.log("=== Window keys ===");
+    for (let key in window) {
+      if (key.toLowerCase().includes('kas') || key.toLowerCase().includes('ware')) {
+        console.log(key + ":", window[key]);
+      }
+    }
+    
+    document.getElementById("connectBtn").onclick = function() {
+      // Try multiple methods
+      let methods = [
+        { name: "window.kasware?.ethereum", get: () => window.kasware?.ethereum },
+        { name: "window.kasware?.ethereum?.providers?.[0]", get: () => window.kasware?.ethereum?.providers?.[0] },
+        { name: "window.ethereum (isKasWare)", get: () => window.ethereum?.isKasWare ? window.ethereum : null },
+      ];
+      
+      for (let m of methods) {
+        console.log("Trying:", m.name);
+        let provider = m.get();
+        if (provider) {
+          console.log("SUCCESS - Provider found!");
+          provider.request({ method: 'eth_requestAccounts' })
+            .then(accounts => console.log("Accounts:", accounts))
+            .catch(err => console.log("Error:", err.message));
+          return;
+        }
+      }
+      
+      console.log("No provider found");
+    };
+  </script>
+</body>
+</html>
