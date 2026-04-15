@@ -92,35 +92,30 @@ contract LiquidityPool is Ownable {
         emit RemoveLiquidity(msg.sender, iKASAmount, constiAmount);
     }
 
-    function swapIKASForConsti() external payable {
-        require(msg.value > 0, "No iKAS");
+function swapIKASForConsti() external payable {
+        require(msg.value > 0, "No iKAS sent");
         
         uint256 constiBal = constiCoin.balanceOf(address(this));
-        if (constiBal == 0 && address(this).balance > msg.value) {
-            constiBal = constiCoin.balanceOf(address(this));
-        }
         require(constiBal > 0, "No CONSTI in pool");
         
         uint256 fee = (msg.value * SWAP_FEE) / FEE_DENOMINATOR;
         uint256 netIn = msg.value - fee;
         
+        // Use tracked reserve or minimum 0.1 iKAS
         uint256 baseReserve = iKASReserve > 1e17 ? iKASReserve : 1e18;
         uint256 constiOut = (netIn * constiBal) / baseReserve;
         
-        if (constiOut == 0 && netIn > 0) {
-            constiOut = 1;
-        }
-        
-        require(constiOut > 0, "Zero output");
+        require(constiOut > 0, "Zero output - pool empty");
+        require(constiBal >= constiOut, "Insufficient CONSTI");
         
         iKASReserve += netIn;
         
         _distributeSwapFee(fee);
         constiCoin.transfer(msg.sender, constiOut);
         
-        emit Swap(msg.sender, msg.value, constiOut, false);
+emit Swap(msg.sender, msg.value, constiOut, false);
     }
-
+    
     function swapConstiForIKAS(uint256 _constiIn) external {
         require(_constiIn > 0, "No CONSTI");
         
@@ -130,8 +125,12 @@ contract LiquidityPool is Ownable {
         uint256 fee = (_constiIn * SWAP_FEE) / FEE_DENOMINATOR;
         uint256 netIn = _constiIn - fee;
         
+        require(iKASReserve > 0, "No iKAS reserve");
         uint256 iKASOut = (netIn * iKASReserve) / constiBal;
-        require(iKASOut > 0 && address(this).balance >= iKASOut, "Insufficient output");
+        require(iKASOut > 0 && address(this).balance >= iKASOut, "Insufficient iKAS");
+        
+        // Check approval
+        require(constiCoin.allowance(msg.sender, address(this)) >= _constiIn, "Need approve");
         
         constiCoin.transferFrom(msg.sender, address(this), _constiIn);
         iKASReserve -= iKASOut;
@@ -160,8 +159,14 @@ contract LiquidityPool is Ownable {
         require(constiCoin.transferFrom(msg.sender, address(this), constiAmount), "Transfer failed");
     }
     
-    function syncReserve() external onlyOwner {
+    function syncReserve() external {
+        // Anyone can sync - makes reserve match actual balance
         iKASReserve = address(this).balance;
+    }
+    
+    function forceSync(uint256 _balance) external onlyOwner {
+        require(_balance > 0);
+        iKASReserve = _balance;
     }
 
     receive() external payable {}

@@ -1,6 +1,12 @@
-# ConstiCoin - Algorithmic Stablecoin
+# ConstiCoin - 1792 Constitutional Dollar
 
-Algorithmic stablecoin pegged to Constitutional Dollar (371.25 grains silver = 0.7734375 oz) deployed on Igra Galleon Testnet.
+Algorithmic stablecoin pegged to 1792 Constitutional Dollar (371.25 grains silver = 0.7734375 oz) deployed on IGRA Galleon Testnet.
+
+⚠️ **Disclaimer**: This is a **seigniorage experiment**, NOT a real stablecoin or currency.
+- No silver reserves - no actual redemption
+- Target price is aspirational - no enforced peg
+- Value comes from pool liquidity only
+- Use at your own risk - this is a crypto experiment
 
 ## Inspired by Dexy
 
@@ -17,6 +23,14 @@ Dexy is a crypto-backed algorithmic stablecoin with a novel approach to stabilit
 - **AI Protocol Control** - Autonomous agents manage the peg
 - **Fee Flywheel** - Sustainable economics through trading fees
 
+## Price Calculation
+
+```
+CONSTI Price (USD) = Pool Price (iKAS) × Silver Price ($/oz) × 0.7734375
+
+Example: 0.0265 iKAS × $79.00/oz × 0.7734375 = $1.61 USD
+```
+
 ## Architecture
 
 ```
@@ -26,10 +40,10 @@ ConstiCoin (ERC20) ──► CentralBank (Peg Management)
                     LiquidityPool (AMM)
                            │
                            ▼
-              ┌────────────────────────┐
-              │   Kaspa L1 Covenants   │
-              │  (SilverScript Vault)  │
-              └────────────────────────┘
+                 ┌────────────────────────┐
+                 │   Kaspa L1 Covenants   │
+                 │  (SilverScript Vault)  │
+                 └────────────────────────┘
 ```
 
 ## Hybrid L1 + L2 Safety
@@ -79,10 +93,22 @@ This implementation includes **Kaspa L1 covenants** for ironclad security:
 - **RPC**: https://galleon-testnet.igralabs.com:8545
 - **Explorer**: https://explorer.galleon-testnet.igralabs.com
 
-## Peg
+## Peg (Aspirational)
 
 - **Target**: $1.00 USD = 371.25 grains silver = 0.7734375 oz silver
-- **CONSTI Target Price**: Silver Price (USD/oz) × 0.7734375
+- **CONSTI Target Price (iKAS)**: Silver Price (USD/oz) × 0.7734375
+- **Note**: This is aspirational - NO enforced redemption
+
+## CONSTI Price Formula
+
+```
+CONSTI Price (USD) = Pool Price (iKAS/CONSTI) × Silver Price ($/oz) × 0.7734375
+```
+
+Example at current prices:
+- Pool Price: 0.0265 iKAS per CONSTI
+- Silver: $79.00/oz
+- CONSTI: 0.0265 × 79 × 0.7734375 = **$1.61 USD**
 
 ## Development
 

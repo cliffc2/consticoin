@@ -1,29 +1,52 @@
-const ethers = require("ethers");
-
-const RPC_URL = "https://galleon-testnet.igralabs.com:8545";
-const POOL_ADDRESS = "0xe07dC9125560b045377553d673b2b5a96f223F7f";
-const CONSTI_ADDRESS = "0x2a9E9C6a89fAb3C32946554AFF2BE9D3C2c2EFDC";
-
-const ABI = [
-    "function balanceOf(address) view returns (uint256)",
-    "function iKASReserve() view returns (uint256)",
-    "function getReserves() view returns (uint256, uint256)"
-];
+require('dotenv').config();
+const { ethers } = require('ethers');
+const fs = require('fs');
+const path = require('path');
 
 async function main() {
-    const provider = new ethers.JsonRpcProvider(RPC_URL);
-    const pool = new ethers.Contract(POOL_ADDRESS, ABI, provider);
-    const consti = new ethers.Contract(CONSTI_ADDRESS, ABI, provider);
+    const provider = new ethers.JsonRpcProvider("https://galleon-testnet.igralabs.com:8545");
+    const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
     
-    const poolConsti = await consti.balanceOf(POOL_ADDRESS);
-    const reserve = await pool.iKASReserve();
-    const [ikasR, constiR] = await pool.getReserves();
-    const poolBalance = await provider.getBalance(POOL_ADDRESS);
+    const lpAddress = "0xe07dC9125560b045377553d673b2b5a96f223F7f";
+    const gasPrice = ethers.parseUnits("2200", "gwei");
     
-    console.log("Pool iKAS Reserve (tracked):", ethers.formatEther(reserve));
-    console.log("Pool iKAS Balance (actual):", ethers.formatEther(poolBalance));
-    console.log("getReserves(): iKAS=", ethers.formatEther(ikasR), "CONSTI=", ethers.formatEther(constiR));
-    console.log("Pool CONSTI balance:", ethers.formatEther(poolConsti));
+    // Use deployed artifact
+    const lpArtifact = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'artifacts', 'contracts', 'LiquidityPool.sol', 'LiquidityPool.json')));
+    const lp = new ethers.Contract(lpAddress, lpArtifact.abi, wallet);
+    
+    const [ikas, consti] = await lp.getReserves();
+    const owner = await lp.owner();
+    const actualBalance = await provider.getBalance(lpAddress);
+    
+    console.log("Current pool state:");
+    console.log("  iKAS reserve (tracked):", ethers.formatEther(ikas));
+    console.log("  CONSTI:", ethers.formatEther(consti));
+    console.log("  Owner:", owner);
+    console.log("  Actual iKAS balance:", ethers.formatEther(actualBalance));
+    console.log("  Delta:", ethers.formatEther(actualBalance - ikas), "iKAS");
+    
+    // Try to call syncReserve with gas estimation first
+    console.log("\nCalling syncReserve...");
+    try {
+        const gasEstimate = await lp.syncReserve.estimateGas();
+        console.log("Gas estimate:", gasEstimate.toString());
+        
+        const tx = await lp.syncReserve({ gasPrice, gasLimit: gasEstimate + 20000 });
+        console.log("Tx:", tx.hash);
+        await tx.wait();
+        console.log("Synced!");
+    } catch(e) {
+        console.log("Error:", e.message);
+        console.log("\nTrying with higher gas...");
+        const tx = await lp.syncReserve({ gasPrice, gasLimit: 500000 });
+        await tx.wait();
+        console.log("Done!");
+    }
+    
+    // Verify
+    const [ikas2, consti2] = await lp.getReserves();
+    console.log("\nAfter sync:");
+    console.log("  iKAS reserve:", ethers.formatEther(ikas2));
 }
 
-main().catch(console.error);
+main().then(() => process.exit(0)).catch(console.error);

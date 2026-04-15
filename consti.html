@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ConstiCoin - Constitutional Dollar</title>
+  <title>ConstiCoin - 1792 Constitutional Dollar</title>
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      background: #000;
       min-height: 100vh;
       color: #fff;
       padding: 20px;
@@ -179,7 +179,22 @@
 <body>
   <div class="container">
     <h1>ConstiCoin</h1>
-    <p class="subtitle">Constitutional Dollar - 371.25 grains silver (0.7734375 oz)</p>
+    <p class="subtitle">1792 Constitutional Dollar - 371.25 grains silver (0.7734375 oz)</p>
+    <p style="text-align:center;margin-bottom:20px;font-size:0.75rem;color:#888;">
+      <a href="https://kasware.xyz" target="_blank" style="color:#a855f7;">Get KasWare</a> · 
+      <a href="https://explorer.galleon-testnet.igralabs.com/address/0xe07dC9125560b045377553d673b2b5a96f223F7f" target="_blank" style="color:#a855f7;">Pool</a> · 
+      <a href="https://explorer.galleon-testnet.igralabs.com/address/0x45F208d9c22E2367c0eFc7C08a01DC3ef56D34f6" target="_blank" style="color:#a855f7;">Bank</a> ·
+      <a href="https://github.com/cliffc2/consticoin" target="_blank" style="color:#a855f7;">GitHub</a>
+    </p>
+    
+    <!-- CONSTI Price Display -->
+    <div style="text-align:center;margin:20px 0;padding:16px;background:rgba(108,92,231,0.1);border:1px solid rgba(168,85,247,0.3);border-radius:12px;">
+      <div style="font-size:0.9rem;color:#a0a0a0;margin-bottom:4px;">CONSTI Price</div>
+      <div style="font-size:2rem;font-weight:bold;color:#a855f7;" id="constiPriceDisplay">$ --</div>
+      <div style="font-size:0.65rem;color:#666;margin-top:4px;">
+        = Pool Price (iKAS) × Silver ($/oz) × 0.7734375
+      </div>
+    </div>
     
     <!-- Wallet Connection -->
     <div class="card">
@@ -189,7 +204,7 @@
         </button>
         <p style="text-align:center;margin-top:10px;font-size:0.8rem;color:#a0a0a0;">
           Open in browser with KasWare installed<br>
-          (use http://localhost:8888/consti.html)
+          (use http://localhost:3000/consti.html)
         </p>
       </div>
       <div id="walletSection" class="hidden">
@@ -224,25 +239,24 @@
           <div class="stat-value purple" id="targetPrice">--</div>
         </div>
         <div class="stat-item">
-          <div class="stat-label">Pool iKAS (tracked)</div>
-          <div class="stat-value" id="pooliKAS">--</div>
+          <div class="stat-label">Pool iKAS</div>
+          <div class="stat-value green" id="pooliKASActual">--</div>
         </div>
         <div class="stat-item">
           <div class="stat-label">Pool CONSTI</div>
           <div class="stat-value purple" id="poolConsti">--</div>
         </div>
         <div class="stat-item">
-          <div class="stat-label">Pool Price</div>
+          <div class="stat-label">CONSTI Price</div>
           <div class="stat-value" id="poolPrice">--</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">Pool iKAS (actual)</div>
-          <div class="stat-value green" id="pooliKASActual">--</div>
         </div>
       </div>
       
       <div class="peggy">
-        Target = Silver Price × 0.7734375 (371.25 grains)
+        Target = Silver Price × 0.7734375 (371.25 grains)<br>
+        <span style="font-size:0.65rem;color:#666;">
+          Inspired by <a href="https://github.com/kushti/dexy-stable" target="_blank" style="color:#888;">Dexy</a> algorithmic stablecoin
+        </span>
       </div>
     </div>
     
@@ -282,6 +296,10 @@
         <span class="card-title">Swap iKAS → CONSTI</span>
       </div>
       
+      <p style="font-size:0.7rem;color:#666;margin-bottom:8px;">
+        Fee: 0.3% · Requires approval on first swap
+      </p>
+      
       <div id="swapForm">
         <input type="number" id="swapAmount" placeholder="Amount of iKAS to swap" step="0.000000000000000001" />
         <button class="btn-primary" id="swapBtn" onclick="swapToConsti()">
@@ -298,6 +316,10 @@
         <span class="card-title">Swap CONSTI → iKAS</span>
       </div>
       
+      <p style="font-size:0.7rem;color:#666;margin-bottom:8px;">
+        First time: 2 signatures (approve + swap) · Fee: 0.3%
+      </p>
+      
       <div id="swapBackForm">
         <input type="number" id="swapBackAmount" placeholder="Amount of CONSTI to swap" step="0.000000000000000001" />
         <button class="btn-warning" id="swapBackBtn" onclick="swapToiKAS()">
@@ -313,16 +335,45 @@
       <div class="card-title" style="margin-bottom: 12px;">Contract Addresses</div>
       <div class="info-row">
         <span class="info-label">ConstiCoin</span>
-        <span class="info-value" id="constiAddr" style="font-size: 0.8rem;">0x2a9E9C6a89fAb3C32946554AFF2BE9D3C2c2EFDC</span>
+        <span class="info-value" id="constiAddr" style="font-size: 0.75rem;">
+          <a href="https://explorer.galleon-testnet.igralabs.com/address/0x2a9E9C6a89fAb3C32946554AFF2BE9D3C2c2EFDC" target="_blank" style="color:#a855f7;">0x2a9E...EFDC</a>
+        </span>
       </div>
       <div class="info-row">
         <span class="info-label">CentralBank</span>
-        <span class="info-value" id="centralBankAddr" style="font-size: 0.8rem;">0xf8bea045952b3a095AbC10d93139f8D08095403a</span>
+        <span class="info-value" id="centralBankAddr" style="font-size: 0.75rem;">
+          <a href="https://explorer.galleon-testnet.igralabs.com/address/0x45F208d9c22E2367c0eFc7C08a01DC3ef56D34f6" target="_blank" style="color:#a855f7;">0x45F2...59eB</a>
+        </span>
       </div>
       <div class="info-row">
         <span class="info-label">LiquidityPool</span>
-        <span class="info-value" id="liquidityPoolAddr" style="font-size: 0.8rem;">0xe07dC9125560b045377553d673b2b5a96f223F7f</span>
+        <span class="info-value" id="liquidityPoolAddr" style="font-size: 0.75rem;">
+          <a href="https://explorer.galleon-testnet.igralabs.com/address/0xe07dC9125560b045377553d673b2b5a96f223F7f" target="_blank" style="color:#a855f7;">0xe07d...F7f</a>
+        </span>
       </div>
+      <div class="info-row">
+        <span class="info-label">Oracle</span>
+        <span class="info-value" style="font-size: 0.75rem;">
+          <a href="https://explorer.galleon-testnet.igralabs.com/address/0x47816a48f90544f2fF964ec7f71D1e3C29049c2b" target="_blank" style="color:#a855f7;">0x4781...c2b</a>
+        </span>
+      </div>
+      <p style="font-size:0.7rem;color:#666;margin-top:10px;">
+        Network: IGRA Galleon Testnet (38836) · <a href="https://galleon-testnet.igralabs.com" target="_blank" style="color:#888;">RPC</a> ·
+        <a href="https://github.com/cliffc2/consticoin" target="_blank" style="color:#888;">GitHub</a>
+      </p>
+    </div>
+    
+    <p style="text-align:center;margin-top:20px;font-size:0.7rem;color:#555;">
+      Zero pre-mine · Algorithmic silver-pegged stablecoin · 
+      <a href="https://github.com/kushti/dexy-stable" target="_blank" style="color:#a855f7;">Based on Dexy</a>
+    </p>
+    
+    <div style="margin-top:20px;padding:12px;background:rgba(255,100,100,0.1);border:1px solid rgba(255,100,100,0.3);border-radius:8px;font-size:0.7rem;color:#ffaaaa;">
+      <b>⚠️ Disclaimer:</b> This is a <a href="https://github.com/kushti/dexy-stable" target="_blank" style="color:#ff8888;">seigniorage experiment</a>, NOT a real stablecoin or currency.<br>
+      • No silver reserves - no actual redemption<br>
+      • Target price is aspirational - no enforced peg<br>
+      • Value comes from pool liquidity only<br>
+      • Use at your own risk - this is a crypto experiment
     </div>
     
     <!-- Debug -->
@@ -523,28 +574,31 @@ async function refreshStats() {
         const poolPrice = await liquidityPool.getPrice();
         document.getElementById("poolPrice").textContent = 
           ethers.formatEther(poolPrice) + " iKAS/CONSTI";
+        
+        // Update CONSTI price at top (USD only)
+        const priceIKAS = parseFloat(ethers.formatEther(poolPrice));
+        const priceUSD = (priceIKAS * silverPriceUSD * 0.7734375).toFixed(2);
+        document.getElementById("constiPriceDisplay").textContent = "$ " + priceUSD;
       } catch (e) {
         document.getElementById("poolPrice").textContent = "No price";
       }
       
-      // Get reserves
+      // Get reserves and actual balance
       try {
         const [ikasReserve, constiReserve] = await liquidityPool.getReserves();
-        document.getElementById("pooliKAS").textContent = 
-          ethers.formatEther(ikasReserve);
-        document.getElementById("poolConsti").textContent = 
-          ethers.formatEther(constiReserve);
         
-        // Get actual iKAS balance
+        // Use actual balance (more accurate)
         const actualBalance = await provider.getBalance(LIQUIDITY_POOL_ADDRESS);
         document.getElementById("pooliKASActual").textContent = 
           ethers.formatEther(actualBalance);
+        document.getElementById("poolConsti").textContent = 
+          ethers.formatEther(constiReserve);
         
         if (parseFloat(ethers.formatEther(constiReserve)) === 0) {
           showStatus("swapStatus", "⚠️ Pool needs initial CONSTI liquidity. Contact deployer.", "error");
         }
       } catch (e) {
-        document.getElementById("pooliKAS").textContent = "--";
+        document.getElementById("pooliKASActual").textContent = "--";
         document.getElementById("poolConsti").textContent = "--";
       }
     }
@@ -593,45 +647,80 @@ async function swapToConsti() {
   
   try {
     const amount = ethers.parseEther(amountStr);
-    const gasPrice = ethers.parseUnits("2000", "gwei"); // IGRA requires min 2000 gwei
+    const gasPrice = ethers.parseUnits("2200", "gwei"); // IGRA min 2000 gwei
     
-    showStatus("swapStatus", "Swapping... (may take 10-30s)", "loading");
+    // Check pool has liquidity first
+    const poolConsti = await constiCoin.balanceOf(LIQUIDITY_POOL_ADDRESS);
+    const pooliKAS = await provider.getBalance(LIQUIDITY_POOL_ADDRESS);
+    console.log("Pool iKAS:", ethers.formatEther(pooliKAS));
+    console.log("Pool CONSTI:", ethers.formatEther(poolConsti));
+    
+    if (poolConsti == 0n) {
+      throw new Error("Pool has no CONSTI - contact admin");
+    }
+    
+    if (parseFloat(ethers.formatEther(pooliKAS)) < 1) {
+      console.log("Warning: Pool has low iKAS");
+    }
+    
+    showStatus("swapStatus", "Swapping... (may take 30-60s)", "loading");
+    
+    // Add value check
+    const balance = await provider.getBalance(userAddress);
+    if (balance < amount) {
+      throw new Error("Insufficient iKAS balance");
+    }
     
     const tx = await liquidityPool.swapIKASForConsti({
       value: amount,
       gasPrice: gasPrice,
-      gasLimit: 500000
+      gasLimit: 800000 // Higher gas limit
     });
     
-    showStatus("swapStatus", "Transaction sent: " + tx.hash.substring(0, 10) + "...", "info");
+    showStatus("swapStatus", "Tx sent: " + tx.hash.substring(0, 10) + "...", "info");
     
-    const receipt = await tx.wait();
+    // Wait with timeout
+    let receipt = null;
+    try {
+      receipt = await tx.wait();
+    } catch (waitError) {
+      // Transaction might still go through even if wait fails
+      console.log("wait() error:", waitError.message);
+      // Try to get receipt anyway
+      receipt = await provider.getTransactionReceipt(tx.hash);
+    }
     
-    // Calculate output amount 
-    const poolConsti = await constiCoin.balanceOf(LIQUIDITY_POOL_ADDRESS);
-    const pooliKAS = await provider.getBalance(LIQUIDITY_POOL_ADDRESS);
-    const poolPrice = await liquidityPool.getPrice();
-    const pricePerConsti = parseFloat(ethers.formatEther(poolPrice));
-    const fee = parseFloat(amountStr) * 0.003;
-    const netIn = parseFloat(amountStr) - fee;
-    const received = (netIn * pricePerConsti).toFixed(4);
-    lastSwapReceived = received;
+    if (receipt && receipt.status === 1) {
+      const poolPrice = await liquidityPool.getPrice();
+      const pricePerConsti = parseFloat(ethers.formatEther(poolPrice));
+      const fee = parseFloat(amountStr) * 0.003;
+      const netIn = parseFloat(amountStr) - fee;
+      const received = (netIn * pricePerConsti).toFixed(4);
+      lastSwapReceived = received;
+      
+      const txUrl = "https://explorer.galleon-testnet.igralabs.com/tx/" + tx.hash;
+      showStatus("swapStatus", 
+          "✅ <b>Swap Complete!</b><br>" +
+          "Sent: " + amountStr + " iKAS<br>" +
+          "Received: " + received + " CONSTI<br>" +
+          "Tx: <a href='" + txUrl + "' target='_blank'>" + tx.hash.substring(0, 16) + "...</a>", 
+          "success");
+      document.getElementById("lastSwapReceived").textContent = received + " CONSTI";
+    } else {
+      showStatus("swapStatus", "Tx may have failed - check explorer", "error");
+    }
     
-    const txUrl = "https://explorer.galleon-testnet.igralabs.com/tx/" + tx.hash;
-    showStatus("swapStatus", 
-        "✅ <b>Swap Complete!</b><br>" +
-        "Sent: " + amountStr + " iKAS<br>" +
-        "Received: " + received + " CONSTI<br>" +
-        "Fee: " + fee.toFixed(4) + " iKAS (0.3%)<br>" +
-        "Tx: <a href='" + txUrl + "' target='_blank' style='color:#a855f7'>" + tx.hash.substring(0, 16) + "...</a>", 
-        "success");
-    document.getElementById("lastSwapReceived").textContent = received + " CONSTI";
     await refreshHoldings();
     await refreshStats();
     
   } catch (error) {
     console.error("Swap error:", error);
-    showStatus("swapStatus", "Swap failed: " + (error.reason || error.message), "error");
+    let msg = error.message || error.reason || "Unknown error";
+    if (msg.includes("insufficient funds")) msg = "Insufficient iKAS for gas";
+    else if (msg.includes("nonce")) msg = "Nonce error - try again";
+    else if (msg.includes("timeout")) msg = "Tx timeout - check explorer";
+    else if (msg.includes("execution revert")) msg = "Tx reverted - pool issue?";
+    showStatus("swapStatus", "Swap failed: " + msg, "error");
   }
 }
 
@@ -649,47 +738,77 @@ async function swapToiKAS() {
   
   try {
     const amount = ethers.parseEther(amountStr);
-    const gasPrice = ethers.parseUnits("2000", "gwei");
+    const gasPrice = ethers.parseUnits("2200", "gwei");
     
-    // First approve
-    showStatus("swapBackStatus", "Approving CONSTI...", "loading");
-    const approveTx = await constiCoin.approve(LIQUIDITY_POOL_ADDRESS, amount, {
-      gasPrice: gasPrice,
-      gasLimit: 100000
-    });
-    await approveTx.wait();
+    // Check balance
+    const userConsti = await constiCoin.balanceOf(userAddress);
+    if (userConsti < amount) {
+      throw new Error("Insufficient CONSTI balance");
+    }
     
-    showStatus("swapBackStatus", "Swapping... (may take 10-30s)", "loading");
+    // Check pool has iKAS
+    const pooliKAS = await provider.getBalance(LIQUIDITY_POOL_ADDRESS);
+    if (pooliKAS < ethers.parseEther("1")) {
+      throw new Error("Pool has no iKAS - contact admin");
+    }
+    
+    // Check/approve allowance
+    const allowance = await constiCoin.allowance(userAddress, LIQUIDITY_POOL_ADDRESS);
+    let approveTx;
+    if (allowance < amount) {
+      showStatus("swapBackStatus", "Approving CONSTI...", "loading");
+      approveTx = await constiCoin.approve(LIQUIDITY_POOL_ADDRESS, amount, {
+        gasPrice: gasPrice,
+        gasLimit: 100000
+      });
+      await approveTx.wait();
+    }
+    
+    showStatus("swapBackStatus", "Swapping...", "loading");
     
     const tx = await liquidityPool.swapConstiForIKAS(amount, {
       gasPrice: gasPrice,
-      gasLimit: 500000
+      gasLimit: 800000
     });
     
-    showStatus("swapBackStatus", "Transaction sent: " + tx.hash.substring(0, 10) + "...", "info");
+    showStatus("swapBackStatus", "Tx sent: " + tx.hash.substring(0, 10) + "...", "info");
     
-    await tx.wait();
+    let receipt = null;
+    try {
+      receipt = await tx.wait();
+    } catch {
+      console.log("wait() failed, checking receipt...");
+      receipt = await provider.getTransactionReceipt(tx.hash);
+    }
     
-    const poolPrice = await liquidityPool.getPrice();
-    const pricePerConsti = parseFloat(ethers.formatEther(poolPrice));
-    const amountSent = parseFloat(amountStr);
-    const fee = amountSent * 0.003;
-    const received = ((amountSent - fee) * pricePerConsti).toFixed(4);
+    if (receipt && receipt.status === 1) {
+      const poolPrice = await liquidityPool.getPrice();
+      const pricePerConsti = parseFloat(ethers.formatEther(poolPrice));
+      const amountSent = parseFloat(amountStr);
+      const fee = amountSent * 0.003;
+      const received = ((amountSent - fee) * pricePerConsti).toFixed(4);
+      
+      const txUrl = "https://explorer.galleon-testnet.igralabs.com/tx/" + tx.hash;
+      showStatus("swapBackStatus", 
+          "✅ <b>Swap Complete!</b><br>" +
+          "Sent: " + amountSent.toFixed(2) + " CONSTI<br>" +
+          "Received: " + received + " iKAS<br>" +
+          "Tx: <a href='" + txUrl + "' target='_blank'>" + tx.hash.substring(0, 16) + "...</a>", 
+          "success");
+    } else {
+      showStatus("swapBackStatus", "Tx may have failed - check explorer", "error");
+    }
     
-    const txUrl = "https://explorer.galleon-testnet.igralabs.com/tx/" + tx.hash;
-    showStatus("swapBackStatus", 
-        "✅ <b>Swap Complete!</b><br>" +
-        "Sent: " + amountSent.toFixed(2) + " CONSTI<br>" +
-        "Received: " + received + " iKAS<br>" +
-        "Fee: " + fee.toFixed(4) + " CONSTI (0.3%)<br>" +
-        "Tx: <a href='" + txUrl + "' target='_blank' style='color:#f59e0b'>" + tx.hash.substring(0, 16) + "...</a>", 
-        "success");
     await refreshHoldings();
     await refreshStats();
     
   } catch (error) {
     console.error("Swap back error:", error);
-    showStatus("swapBackStatus", "Swap failed: " + (error.reason || error.message), "error");
+    let msg = error.message || error.reason || "Unknown error";
+    if (msg.includes("insufficient")) msg = "Insufficient balance";
+    else if (msg.includes("approve")) msg = "Approval failed - try again";
+    else if (msg.includes("execution revert")) msg = "Reverted - pool issue?";
+    showStatus("swapBackStatus", "Swap failed: " + msg, "error");
   }
 }
 
@@ -759,9 +878,9 @@ window.onload = function() {
   console.log("window.ethereum?.isKasWare:", window.ethereum?.isKasWare);
 };
 
-// Manual refresh only - MetalpriceAPI has 100 requests/month limit
+// Uses MetalMetric API (free, no key) + Gold-API fallback
 
-console.log("ConstiCoin Interface loaded. Open http://localhost:8888/consti.html to test!");
+console.log("ConstiCoin Interface loaded. Connect wallet to swap!");
 </script>
 </body>
 </html>
